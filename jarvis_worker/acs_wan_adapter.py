@@ -21,6 +21,7 @@ class WanAdapter:
         if self.wan_dir not in sys.path:
             sys.path.insert(0, self.wan_dir)
         self._session = None
+        self._current_job = None
 
     def _ensure(self):
         if self._session is None:
@@ -67,10 +68,26 @@ class WanAdapter:
         settings["model_type"] = model_type
         return settings
 
+    def cancel_current(self) -> bool:
+        """Best-effort abort of the in-flight submit_task job, if the engine
+        supports it. Returns False (never raises) when there is no job or the
+        underlying job object has no cancellation support."""
+        job = self._current_job
+        if job is None:
+            return False
+        try:
+            return bool(job.cancel())
+        except Exception:
+            return False
+
     def generate(self, model_type: str, overrides: dict[str, Any] | None = None, callbacks=None) -> dict[str, Any]:
         settings = self.build_settings(model_type, overrides)
         job = self._ensure().submit_task(settings, callbacks=callbacks)
-        result = job.result()
+        self._current_job = job
+        try:
+            result = job.result()
+        finally:
+            self._current_job = None
         if not result.success:
             errors = getattr(result, "errors", None) or []
             message = getattr(errors[0], "message", "unknown generation error") if errors else "unknown generation error"
