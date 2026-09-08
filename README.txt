@@ -1,10 +1,39 @@
 JARVIS RUNPOD WORKER V6
 
 V6 is a thin HTTP bridge over the current WanGP Python API.
-It reuses the V5 image, so no dependency reinstall is needed.
 
-Image: motta010203/jarvis-worker:v6
-HTTP: 7872
+Real deployment (verified against the live Pod, RTX 4090, 2026-09-08):
+this worker is NOT a separate Docker image. The Pod already runs a
+prebuilt Wan2GP image (deepbeepmeep/Wan2GP, supervisord-managed, Gradio
+UI on :7860 proxied at :7862 with basic auth). jarvis_worker/ is instead
+synced straight into that same Pod's persistent volume and run as a
+plain process inside the Pod's own venv, which already has fastapi/
+uvicorn/python-multipart preinstalled — no extra image build/push, no
+new container.
+
+  WAN_DIR (real):     /workspace/Wan2GP   (NOT wan2gp_upstream)
+  Worker source:       /workspace/jarvis_worker (synced from this repo's
+                        jarvis_worker/, persists across Pod restarts)
+  Python:              /opt/wan2gp-venv/bin/python (already has the deps)
+  Worker HTTP:          127.0.0.1:7271 (loopback only)
+  Public HTTP:           :7270 -> reuses the Pod image's existing nginx
+                        proxy block labelled "Dockerless CLI FastAPI
+                        Server" (see /etc/nginx/nginx.conf on the Pod) --
+                        no nginx/supervisor config was touched to add
+                        this; the proxy slot already existed, unused.
+  Start command:        JARVIS_WAN_DIR=/workspace/Wan2GP
+                        JARVIS_OUTPUT_DIR=/workspace/outputs
+                        JARVIS_REFS_DIR=/workspace/refs
+                        JARVIS_WORKER_TOKEN=<generated, kept out of git>
+                        nohup /opt/wan2gp-venv/bin/python -m uvicorn
+                        app:app --host 127.0.0.1 --port 7271
+                        > /workspace/jarvis_worker.log 2>&1 &
+
+Confirmed end-to-end on the real Pod: GET /health, GET /models (real
+~200-model WanGP catalog), and a real POST /run_task (t2v_1.3B, 8 steps,
+480x272, 17 frames) that downloaded real weights from Hugging Face and
+produced a real .mp4 in /workspace/outputs. No mocks.
+
 SSH: 22
 Persistent volume: /workspace
 

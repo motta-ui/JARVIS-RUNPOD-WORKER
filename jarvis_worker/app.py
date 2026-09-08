@@ -10,7 +10,7 @@ from fastapi import FastAPI, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-WAN_DIR = Path(os.getenv("JARVIS_WAN_DIR", "/workspace/JARVIS/wan2gp_upstream")).resolve()
+WAN_DIR = Path(os.getenv("JARVIS_WAN_DIR", "/workspace/Wan2GP")).resolve()
 OUTPUT_DIR = Path(os.getenv("JARVIS_OUTPUT_DIR", "/workspace/outputs")).resolve()
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 REFS_DIR = Path(os.getenv("JARVIS_REFS_DIR", "/workspace/refs")).resolve()
