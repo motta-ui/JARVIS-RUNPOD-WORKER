@@ -1,0 +1,17 @@
+{
+  "FAST": {
+    "label": "Fast",
+    "description": "Iteração rápida, menor qualidade.",
+    "default_steps": 8
+  },
+  "BALANCED": {
+    "label": "Balanced",
+    "description": "Equilíbrio entre velocidade e qualidade.",
+    "default_steps": 20
+  },
+  "PRO": {
+    "label": "Pro",
+    "description": "Máxima qualidade, mais lento.",
+    "default_steps": 40
+  }
+}

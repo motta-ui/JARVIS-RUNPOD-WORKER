@@ -1,0 +1,14 @@
+[
+  {"id": "guidance_scale", "label": "Guidance Scale", "type": "number", "default": 6.0, "min": 1, "max": 20, "step": 0.5, "tooltip": "Aderência ao prompt."},
+  {"id": "film_grain_intensity", "label": "Film Grain Intensity", "type": "number", "default": 0, "min": 0, "max": 1, "step": 0.05, "tooltip": "Intensidade do grão de filme."},
+  {"id": "film_grain_saturation", "label": "Film Grain Saturation", "type": "number", "default": 0.5, "min": 0, "max": 1, "step": 0.05, "tooltip": "Saturação do grão de filme."},
+  {"id": "sliding_window_size", "label": "Sliding Window Size", "type": "number", "default": 0, "min": 0, "max": 256, "step": 1, "tooltip": "Tamanho da janela deslizante temporal."},
+  {"id": "sliding_window_overlap", "label": "Sliding Window Overlap", "type": "number", "default": 0, "min": 0, "max": 128, "step": 1, "tooltip": "Sobreposição entre janelas."},
+  {"id": "guidance_phases", "label": "Guidance Phases", "type": "number", "default": 1, "min": 1, "max": 4, "step": 1, "tooltip": "Número de fases de guidance."},
+  {"id": "riflex", "label": "RIFLEx", "type": "boolean", "default": false, "tooltip": "Extensão de contexto temporal."},
+  {"id": "temporal_upsampling", "label": "Temporal Upsampling", "type": "boolean", "default": false, "tooltip": "Aumenta a taxa de frames por interpolação."},
+  {"id": "fps", "label": "FPS", "type": "number", "default": 24, "min": 8, "max": 60, "step": 1, "tooltip": "Frames por segundo do output."},
+  {"id": "self_refiner", "label": "Self Refiner", "type": "boolean", "default": false, "tooltip": "Passagem de refinamento automático."},
+  {"id": "spatial_upsampling", "label": "Spatial Upsampling", "type": "boolean", "default": false, "tooltip": "Upscale espacial do output."},
+  {"id": "prompt_enhancer", "label": "Prompt Enhancer", "type": "boolean", "default": false, "tooltip": "Reescreve/expande o prompt automaticamente antes da geração."}
+]

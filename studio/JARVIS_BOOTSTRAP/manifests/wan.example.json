@@ -1,0 +1,42 @@
+{
+  "$comment": "Exemplo de manifest. Define O QUE instalar numa GPU cloud descartável, não COMO (isso é do CloudProvider). Nenhum download acontece ao correr isto agora — ver JARVIS_BOOTSTRAP/README.md.",
+  "engine": "wan",
+  "version": "0.1.0",
+  "steps": [
+    {
+      "id": "system_deps",
+      "type": "apt",
+      "packages": [
+        "ffmpeg",
+        "git"
+      ]
+    },
+    {
+      "id": "python_env",
+      "type": "venv",
+      "python": "3.10"
+    },
+    {
+      "id": "engine_deps",
+      "type": "pip",
+      "requirements": "engines/ltx/requirements.txt"
+    },
+    {
+      "id": "models",
+      "type": "download",
+      "items": [],
+      "note": "lista de modelos a descarregar - vazio por agora"
+    },
+    {
+      "id": "loras",
+      "type": "download",
+      "items": [],
+      "note": "lista de LoRAs a descarregar - vazio por agora"
+    },
+    {
+      "id": "worker",
+      "type": "start",
+      "command": "python -m jarvis_worker --engine ltx"
+    }
+  ]
+}

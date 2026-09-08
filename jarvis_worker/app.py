@@ -28,7 +28,7 @@ _adapter_lock = threading.Lock()
 _adapter = None
 _job = {
     "job_id": None, "status": "idle", "progress": 0, "phase": "idle",
-    "output": None, "error": None, "model_type": None,
+    "output": None, "output_relpath": None, "error": None, "model_type": None,
 }
 
 
@@ -81,11 +81,17 @@ def _media_kind(suffix: str) -> str | None:
     return None
 
 
-def _safe_serve(base_dir: Path, filename: str) -> Path:
-    if not filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="invalid filename")
-    resolved = (base_dir / filename).resolve()
-    if resolved.parent != base_dir:
+def _safe_serve(base_dir: Path, rel_path: str) -> Path:
+    """Resolves rel_path under base_dir, allowing nested subdirectories
+    (WanGP commonly saves outputs under per-run subfolders) while blocking
+    traversal: '..' segments are rejected outright, and resolve()+relative_to()
+    catches any remaining escape attempt (e.g. via symlinks)."""
+    if not rel_path or rel_path.startswith("/") or ".." in Path(rel_path).parts:
+        raise HTTPException(status_code=400, detail="invalid path")
+    resolved = (base_dir / rel_path).resolve()
+    try:
+        resolved.relative_to(base_dir)
+    except ValueError:
         raise HTTPException(status_code=403, detail="path outside allowed directory")
     if not resolved.exists() or not resolved.is_file():
         raise HTTPException(status_code=404, detail="file not found")
@@ -148,7 +154,7 @@ def worker(job_id: str, model_type: str, settings: dict[str, Any]) -> None:
     try:
         set_job(job_id=job_id, status="running", progress=0,
                 phase="loading_model", model_type=model_type,
-                output=None, error=None)
+                output=None, output_relpath=None, error=None)
         result = get_adapter().generate(
             model_type=model_type,
             overrides=settings,
@@ -160,7 +166,13 @@ def worker(job_id: str, model_type: str, settings: dict[str, Any]) -> None:
         output = result.get("path") or (files[0] if files else None)
         if not output:
             raise RuntimeError("WanGP completed without returning an output path")
-        set_job(status="completed", progress=100, phase="done", output=str(output), error=None)
+        output_relpath = None
+        try:
+            output_relpath = Path(output).resolve().relative_to(OUTPUT_DIR).as_posix()
+        except ValueError:
+            pass  # output landed outside OUTPUT_DIR — /outputs/{path} can't serve it; output stays absolute-only
+        set_job(status="completed", progress=100, phase="done", output=str(output),
+                output_relpath=output_relpath, error=None)
     except Exception as exc:
         set_job(status="failed", phase="error", error=f"{type(exc).__name__}: {exc}")
 
@@ -262,7 +274,7 @@ def run_task(task: RunTask, x_jarvis_token: str | None = Header(default=None)):
             raise HTTPException(status_code=409, detail="worker busy")
         job_id = str(uuid.uuid4())
         _job.update(job_id=job_id, status="queued", progress=0, phase="queued",
-                    output=None, error=None, model_type=task.model_type)
+                    output=None, output_relpath=None, error=None, model_type=task.model_type)
     threading.Thread(target=worker, args=(job_id, task.model_type, task.settings), daemon=True).start()
     return {"job_id": job_id, "status": "queued"}
 
@@ -307,7 +319,7 @@ def list_outputs(type: str | None = None, limit: int = 30, x_jarvis_token: str |
         raise HTTPException(status_code=400, detail="type must be one of: video, image, audio")
 
     video_exts = _VIDEO_EXTS | {".webp"}
-    files = [f for f in OUTPUT_DIR.iterdir() if f.is_file()]
+    files = [f for f in OUTPUT_DIR.rglob("*") if f.is_file()]
     results = []
     for f in sorted(files, key=lambda item: item.stat().st_mtime, reverse=True):
         suffix = f.suffix.lower()
@@ -317,9 +329,10 @@ def list_outputs(type: str | None = None, limit: int = 30, x_jarvis_token: str |
         if type is not None and kind != type:
             continue
         stat = f.stat()
+        rel = f.relative_to(OUTPUT_DIR).as_posix()
         results.append({
-            "name": f.name,
-            "url": f"/outputs/{f.name}",
+            "name": rel,
+            "url": f"/outputs/{rel}",
             "type": kind,
             "size_mb": round(stat.st_size / 1024 / 1024, 2),
             "created": stat.st_mtime,
@@ -327,7 +340,7 @@ def list_outputs(type: str | None = None, limit: int = 30, x_jarvis_token: str |
     return {"outputs": results[:limit]}
 
 
-@app.get("/outputs/{filename}")
+@app.get("/outputs/{filename:path}")
 def get_output(filename: str, download: bool = False, x_jarvis_token: str | None = Header(default=None)):
     auth(x_jarvis_token)
     resolved = _safe_serve(OUTPUT_DIR, filename)
@@ -336,7 +349,7 @@ def get_output(filename: str, download: bool = False, x_jarvis_token: str | None
     return FileResponse(str(resolved), media_type=media_type, headers=headers)
 
 
-@app.get("/file/{filename}")
+@app.get("/file/{filename:path}")
 def get_file(filename: str, x_jarvis_token: str | None = Header(default=None)):
     """Alias serving from either OUTPUT_DIR (generated results) or REFS_DIR
     (uploaded references), matching the /file/{filename} route documented in
@@ -350,12 +363,12 @@ def get_file(filename: str, x_jarvis_token: str | None = Header(default=None)):
     return FileResponse(str(resolved), media_type=media_type)
 
 
-@app.get("/video/{filename}")
+@app.get("/video/{filename:path}")
 def get_video(filename: str, x_jarvis_token: str | None = Header(default=None)):
     return get_file(filename, x_jarvis_token=x_jarvis_token)
 
 
-@app.delete("/outputs/{filename}")
+@app.delete("/outputs/{filename:path}")
 def delete_output(filename: str, x_jarvis_token: str | None = Header(default=None)):
     auth(x_jarvis_token)
     resolved = _safe_serve(OUTPUT_DIR, filename)

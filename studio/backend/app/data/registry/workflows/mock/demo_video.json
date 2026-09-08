@@ -1,0 +1,8 @@
+{
+  "engine": "mock",
+  "status": "placeholder",
+  "description": "Workflow demo (mock) - video",
+  "graph": null,
+  "graph_format": "comfyui-style (por definir)",
+  "note": "Arquitetura pronta para receber um grafo real (ComfyUI/LTX/Wan) no futuro. Nenhum grafo, peso ou codigo proprietario foi copiado para aqui."
+}

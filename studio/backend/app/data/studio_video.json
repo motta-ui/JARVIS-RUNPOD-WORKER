@@ -1,0 +1,37 @@
+{
+  "label": "Video Studio",
+  "kind": "video",
+  "modes": [
+    {"id": "t2v", "label": "Texto \u2192 V\u00eddeo", "needs": []},
+    {"id": "i2v", "label": "Img \u2192 V\u00eddeo", "needs": ["start_image"]},
+    {"id": "end_frame", "label": "End Frame", "needs": ["start_image", "end_frame"]},
+    {"id": "continue", "label": "Continue", "needs": ["reference_video"]},
+    {"id": "t2i", "label": "Texto \u2192 Imagem", "needs": []},
+    {"id": "animate_character", "label": "Animar Personagem", "needs": ["reference_image", "control_video"]}
+  ],
+  "reference_zones": [
+    {"key": "start_image", "label": "Start Image", "accept": "image/*"},
+    {"key": "end_frame", "label": "End Frame", "accept": "image/*"},
+    {"key": "reference_image", "label": "Reference Image", "accept": "image/*"},
+    {"key": "inject_frame_2", "label": "Inject Frame 2", "accept": "image/*"},
+    {"key": "inject_frame_3", "label": "Inject Frame 3", "accept": "image/*"},
+    {"key": "additional_frames", "label": "Additional Frames", "accept": "image/*"},
+    {"key": "control_video", "label": "Control Video", "accept": "video/*"},
+    {"key": "reference_video", "label": "Source Video (Continue)", "accept": "video/*"},
+    {"key": "audio", "label": "Audio", "accept": "audio/*"}
+  ],
+  "addons": [
+    {"id": "end_frame", "label": "End Frame"},
+    {"id": "control_video", "label": "Ctrl V\u00eddeo"},
+    {"id": "frame_inject", "label": "Frame Inject"}
+  ],
+  "extra_fields": [],
+  "has_duration": true,
+  "duration_min": 1,
+  "duration_max": 30,
+  "duration_default": 5,
+  "has_format": true,
+  "has_source_strength": true,
+  "has_lora": true,
+  "has_batch": false
+}

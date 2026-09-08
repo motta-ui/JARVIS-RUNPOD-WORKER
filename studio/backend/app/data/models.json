@@ -1,0 +1,62 @@
+[
+  {
+    "id": "jarvis-demo-t2v",
+    "name": "JARVIS Demo T2V",
+    "family": "demo",
+    "kind": "video",
+    "type": "video",
+    "capabilities": {"t2v": true, "i2v": true, "audio": false, "lora": true, "control_video": true},
+    "requirements": {"vram_gb": 0, "gpu_required": false},
+    "engines": ["mock"]
+  },
+  {
+    "id": "jarvis-demo-i2v-audio",
+    "name": "JARVIS Demo I2V+Audio",
+    "family": "demo",
+    "kind": "video",
+    "type": "video",
+    "capabilities": {"t2v": false, "i2v": true, "audio": true, "lora": true, "control_video": false},
+    "requirements": {"vram_gb": 0, "gpu_required": false},
+    "engines": ["mock"]
+  },
+  {
+    "id": "minimax-h3",
+    "name": "MiniMax H3",
+    "family": "minimax",
+    "kind": "video",
+    "type": "video",
+    "capabilities": {"t2v": true, "i2v": true, "reference_generation": true, "audio": false, "lora": false, "control_video": false},
+    "requirements": {"vram_gb": 0, "gpu_required": false, "api_key_env": "MINIMAX_API_KEY"},
+    "engines": ["minimax"]
+  },
+  {
+    "id": "jarvis-demo-t2i",
+    "name": "JARVIS Demo Image",
+    "family": "demo",
+    "kind": "image",
+    "type": "image",
+    "capabilities": {"t2i": true, "i2i": true, "lora": true, "batch": true},
+    "requirements": {"vram_gb": 0, "gpu_required": false},
+    "engines": ["mock"]
+  },
+  {
+    "id": "jarvis-demo-audio",
+    "name": "JARVIS Demo Audio",
+    "family": "demo",
+    "kind": "audio",
+    "type": "audio",
+    "capabilities": {"music": true, "sfx": true, "speech": true, "reference": true},
+    "requirements": {"vram_gb": 0, "gpu_required": false},
+    "engines": ["mock"]
+  },
+  {
+    "id": "jarvis-demo-motion",
+    "name": "JARVIS Demo Motion",
+    "family": "demo",
+    "kind": "motion",
+    "type": "motion",
+    "capabilities": {"image_animation": true, "motion_transfer": true},
+    "requirements": {"vram_gb": 0, "gpu_required": false},
+    "engines": ["mock"]
+  }
+]

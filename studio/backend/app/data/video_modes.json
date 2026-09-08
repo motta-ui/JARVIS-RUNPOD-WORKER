@@ -1,0 +1,8 @@
+[
+  {"id": "t2v", "label": "Texto \u2192 V\u00eddeo", "needs": []},
+  {"id": "i2v", "label": "Img \u2192 V\u00eddeo", "needs": ["start_image"]},
+  {"id": "end_frame", "label": "End Frame", "needs": ["start_image", "end_frame"]},
+  {"id": "continue", "label": "Continue", "needs": ["reference_video"]},
+  {"id": "t2i", "label": "Texto \u2192 Imagem", "needs": []},
+  {"id": "animate_character", "label": "Animar Personagem", "needs": ["reference_image", "control_video"]}
+]

@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Node / frontend build
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# JARVIS Studio runtime data (kept as empty dirs via .gitkeep)
+studio/data/*.db
+studio/outputs/*
+!studio/outputs/.gitkeep
+studio/assets/*
+!studio/assets/.gitkeep
+studio/loras/*
+!studio/loras/.gitkeep
+studio/projects/*
+!studio/projects/.gitkeep
+studio/.env
+
+# Editors / OS
+.DS_Store
+.vscode/
+.idea/

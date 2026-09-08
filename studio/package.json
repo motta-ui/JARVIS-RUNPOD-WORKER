@@ -1,0 +1,11 @@
+{
+  "name": "jarvis-ai-studio",
+  "private": true,
+  "version": "0.1.0",
+  "description": "JARVIS AI STUDIO - Studio de criação com IA (independente)",
+  "scripts": {
+    "frontend": "cd frontend && npm run dev",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:build": "cd frontend && npm run build"
+  }
+}

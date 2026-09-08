@@ -1,0 +1,44 @@
+[
+  {
+    "id": "canny",
+    "name": "Canny",
+    "description": "Extrai contornos/bordas do vídeo de controlo.",
+    "compatibility": ["t2v", "i2v"]
+  },
+  {
+    "id": "depth",
+    "name": "Profundidade",
+    "description": "Usa um mapa de profundidade como guia estrutural.",
+    "compatibility": ["t2v", "i2v"]
+  },
+  {
+    "id": "human_motion",
+    "name": "Movimento Humano",
+    "description": "Extrai o movimento humano do vídeo de referência.",
+    "compatibility": ["i2v", "animate_character"]
+  },
+  {
+    "id": "pose_align",
+    "name": "Pose Align",
+    "description": "Alinha a pose do sujeito com a referência.",
+    "compatibility": ["animate_character"]
+  },
+  {
+    "id": "ic_raw",
+    "name": "IC Bruto",
+    "description": "Passa o vídeo de controlo sem pré-processamento.",
+    "compatibility": ["t2v", "i2v"]
+  },
+  {
+    "id": "hdr",
+    "name": "HDR",
+    "description": "Preserva/realça faixa dinâmica.",
+    "compatibility": ["t2v", "i2v"]
+  },
+  {
+    "id": "animate_character",
+    "name": "Animar Personagem",
+    "description": "Aplica movimento de referência a uma personagem estática.",
+    "compatibility": ["animate_character"]
+  }
+]
