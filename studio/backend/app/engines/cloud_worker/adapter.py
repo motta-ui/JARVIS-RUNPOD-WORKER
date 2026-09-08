@@ -105,6 +105,17 @@ DOWNLOAD_TIMEOUT = 900
 POLL_INTERVAL_SECONDS = 2
 MAX_WAIT_SECONDS = 45 * 60
 
+# All ~26 CloudWorkerEngine instances (one per WanGP model family, see
+# registry.py) point at the exact same Cloud Worker connection, so their
+# health() would otherwise make that many identical, sequential /health
+# requests every time something like GET /api/engines lists them all --
+# harmless against a fast local fake worker, but ~15s against a real
+# remote Worker over a network hop (confirmed against the live RunPod Pod).
+# Shared, short-TTL cache keyed by base URL so a burst of calls collapses
+# into one real request.
+_HEALTH_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+_HEALTH_CACHE_TTL_SECONDS = 5.0
+
 AUDIO_EXTS = {".mp3", ".wav", ".ogg", ".flac", ".aac", ".m4a", ".opus", ".wma"}
 
 SINGLE_IMAGE_ZONES = {"start_image": "image_start", "end_frame": "image_end"}
@@ -185,12 +196,20 @@ class CloudWorkerEngine(BaseEngine):
             return {"online": False, "detail": "Nenhum Cloud Worker configurado (ver Sistema -> Cloud)."}
         if not HAS_REQUESTS:
             return {"online": False, "detail": "Dependência 'requests' em falta."}
+
+        cached = _HEALTH_CACHE.get(base)
+        now = time.time()
+        if cached and now - cached[0] < _HEALTH_CACHE_TTL_SECONDS:
+            return cached[1]
+
         try:
             r = requests.get(f"{base}/health", headers=self._headers(), timeout=REQUEST_TIMEOUT)
             r.raise_for_status()
-            return {"online": True, "detail": f"Worker ligado em {base}."}
+            result = {"online": True, "detail": f"Worker ligado em {base}."}
         except Exception as e:
-            return {"online": False, "detail": f"Worker não respondeu ({base}): {e}"}
+            result = {"online": False, "detail": f"Worker não respondeu ({base}): {e}"}
+        _HEALTH_CACHE[base] = (now, result)
+        return result
 
     # -- internos ----------------------------------------------------------
 
