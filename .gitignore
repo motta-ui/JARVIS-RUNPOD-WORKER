@@ -29,6 +29,13 @@ studio/backend/outputs/*
 studio/backend/runtime/
 studio/backend/__pycache__/
 
+# Local-only reference data copied from the real C:\ACS Unlimited\ install
+# (ffmpeg binaries + LoRA/profile catalogs) — provision locally per
+# studio/backend/wan2gp_local/README.md, never committed (ffmpeg_bins alone
+# is ~300MB of binaries; ckpts/models were deliberately NOT copied at all,
+# generation runs on the RunPod Worker, not locally).
+studio/backend/wan2gp_local/
+
 # Editors / OS
 .DS_Store
 .vscode/
