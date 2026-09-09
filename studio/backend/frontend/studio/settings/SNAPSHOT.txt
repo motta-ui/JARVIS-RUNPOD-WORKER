@@ -1,0 +1,3 @@
+2026-05-13_SETTINGS-PHASE1-SAFE-CONFIG-STABLE
+Settings Phase 1 implementado
+Files: acs_api.py, settings/index.html v2, settings/settings.css v2

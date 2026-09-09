@@ -1,0 +1,3 @@
+This file marks a local development instance of ACS Studio (JARVIS deployment).
+It disables license/integrity gating via the app's own documented dev-mode switch
+(_is_dev_environment() in acs_api.py). Never ship this file in a packaged install.

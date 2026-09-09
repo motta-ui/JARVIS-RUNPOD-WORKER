@@ -1,0 +1,263 @@
+/* ══════════════════════════════════════════════════════
+   SIDEBAR MEDIA BROWSER — Fase 1 (safe) — 2026-05-13
+   Todas as regras são escopadas em .sidebar-media-* ou .smb-*
+   Nenhuma regra toca: body, .studio, .main, .workspace,
+   .hud, .gen-dock, .img-gallery-panel, .gallery-panel
+══════════════════════════════════════════════════════ */
+
+/* Permite scroll na sidebar somente quando o painel está aberto.
+   .sidebar é o único seletor externo usado — e apenas para
+   desblocar overflow que já existia (hidden → auto). */
+.sidebar.sidebar-media-open {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.sidebar.sidebar-media-open::-webkit-scrollbar { width: 3px; }
+.sidebar.sidebar-media-open::-webkit-scrollbar-track { background: transparent; }
+.sidebar.sidebar-media-open::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.1);
+  border-radius: 2px;
+}
+
+/* ── Painel container ────────────────────────────── */
+.sidebar-media-panel {
+  display: none;
+  flex-direction: column;
+  margin: 2px 8px 6px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 7px;
+  overflow: hidden;
+}
+.sidebar-media-panel.smb-open {
+  display: flex;
+}
+
+/* ── Filtros ─────────────────────────────────────── */
+.sidebar-media-filters {
+  display: flex;
+  gap: 3px;
+  padding: 7px 7px 5px;
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  flex-shrink: 0;
+}
+.smb-filter {
+  flex: 1;
+  background: none;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 4px;
+  color: rgba(255,255,255,.35);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .03em;
+  padding: 4px 0;
+  cursor: pointer;
+  transition: all .12s;
+  font-family: inherit;
+  line-height: 1;
+}
+.smb-filter:hover {
+  background: rgba(255,255,255,.06);
+  color: rgba(255,255,255,.7);
+}
+.smb-filter.smb-active {
+  background: rgba(255,255,255,.09);
+  border-color: rgba(255,255,255,.2);
+  color: #fff;
+}
+
+/* ── Contador ────────────────────────────────────── */
+.sidebar-media-count {
+  padding: 4px 9px 2px;
+  font-size: 9px;
+  color: rgba(255,255,255,.2);
+  letter-spacing: .03em;
+  flex-shrink: 0;
+}
+
+/* ── Grid scrollável ─────────────────────────────── */
+.sidebar-media-grid {
+  overflow-y: auto;
+  max-height: 260px;
+  padding: 5px 6px 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  align-content: start;
+  flex-shrink: 0;
+}
+.sidebar-media-grid::-webkit-scrollbar { width: 3px; }
+.sidebar-media-grid::-webkit-scrollbar-track { background: transparent; }
+.sidebar-media-grid::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,.1);
+  border-radius: 2px;
+}
+
+/* ── Estados ─────────────────────────────────────── */
+.smb-empty,
+.smb-loading {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: rgba(255,255,255,.2);
+  text-align: center;
+  padding: 18px 8px;
+  line-height: 1.5;
+}
+
+/* ── Cards base ──────────────────────────────────── */
+.smb-card {
+  border-radius: 5px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  background: #1a1a1a;
+  border: 1px solid rgba(255,255,255,.06);
+  transition: border-color .12s;
+  aspect-ratio: 1;
+}
+.smb-card:hover {
+  border-color: rgba(255,255,255,.22);
+}
+
+/* ── Card: Image ─────────────────────────────────── */
+.smb-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ── Card: Video ─────────────────────────────────── */
+.smb-card-vid {
+  background: #0d0d0d;
+}
+/* Vídeo preenche o card como cover — pointer-events:none impede interação acidental */
+.smb-card-vid video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+}
+/* Ícone ▶ sobreposto — gradiente escuro mantém legibilidade */
+.smb-play-icon {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  color: rgba(255,255,255,.85);
+  text-shadow: 0 0 8px rgba(0,0,0,.9), 0 1px 3px rgba(0,0,0,.7);
+  background: rgba(0,0,0,.18);
+  pointer-events: none;
+  transition: background .12s;
+}
+.smb-card-vid:hover .smb-play-icon {
+  background: rgba(0,0,0,.38);
+}
+/* Tooltip nome — aparece no hover (partilhado com imagens) */
+.smb-card-label {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,.72));
+  padding: 14px 5px 4px;
+  font-size: 8px;
+  color: rgba(255,255,255,.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity .12s;
+  pointer-events: none;
+}
+.smb-card:hover .smb-card-label { opacity: 1; }
+
+/* ── Card: Audio (full-width) ────────────────────── */
+.smb-card-aud {
+  grid-column: 1 / -1;
+  aspect-ratio: unset;
+  height: auto;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 8px;
+}
+.smb-aud-ic {
+  font-size: 13px;
+  flex-shrink: 0;
+  color: rgba(255,255,255,.3);
+}
+.smb-aud-info {
+  flex: 1;
+  overflow: hidden;
+}
+.smb-aud-name {
+  font-size: 10px;
+  color: rgba(255,255,255,.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.smb-aud-meta {
+  font-size: 9px;
+  color: rgba(255,255,255,.25);
+  margin-top: 1px;
+}
+.smb-aud-btn {
+  background: none;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  color: rgba(255,255,255,.45);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .12s;
+  font-family: inherit;
+}
+.smb-aud-btn:hover {
+  background: rgba(255,255,255,.1);
+  border-color: rgba(255,255,255,.28);
+  color: #fff;
+}
+.smb-card-aud.smb-playing {
+  border-color: rgba(80,210,110,.3);
+  background: rgba(80,210,110,.05);
+}
+.smb-card-aud.smb-playing .smb-aud-ic,
+.smb-card-aud.smb-playing .smb-aud-btn {
+  color: rgba(100,225,130,.75);
+  border-color: rgba(100,225,130,.25);
+}
+
+/* ── Footer: link galeria completa ───────────────── */
+.sidebar-media-full {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255,255,255,.28);
+  text-decoration: none;
+  padding: 6px 8px 7px;
+  border-top: 1px solid rgba(255,255,255,.06);
+  transition: color .12s, background .12s;
+  letter-spacing: .03em;
+  flex-shrink: 0;
+}
+.sidebar-media-full:hover {
+  color: rgba(255,255,255,.65);
+  background: rgba(255,255,255,.04);
+}
+
+/* ── Gallery nav-item: estado ativo ──────────────── */
+.nav-item.smb-gallery-active {
+  background: rgba(255,255,255,.08) !important;
+  color: #fff !important;
+}

@@ -1,5 +1,0 @@
-[
-  {"id": "end_frame", "label": "End Frame", "controls": ["end_frame_dropzone"]},
-  {"id": "control_video", "label": "Ctrl V\u00eddeo", "controls": ["control_video_dropzone", "control_video_options"]},
-  {"id": "frame_inject", "label": "Frame Inject", "controls": ["key_injection", "frame_injection_slots"]}
-]

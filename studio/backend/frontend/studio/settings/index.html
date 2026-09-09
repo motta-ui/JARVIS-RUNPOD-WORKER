@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Settings — ACS Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <!-- studio.css ANTES de settings.css: define tokens compartilhados (paleta ACS, sidebar, hero glows). -->
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <link rel="stylesheet" href="settings.css?v=4" />
+  <style>
+    /* Experimental sgroup */
+    .sgroup--experimental {
+      border: 1px solid rgba(220,160,60,.25);
+      border-radius: 10px;
+      overflow: hidden;
+      background: rgba(220,140,40,.04);
+    }
+    .sgroup-experimental-toggle {
+      padding: 14px 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid transparent;
+      transition: background .15s;
+    }
+    .sgroup-experimental-toggle:hover { background: rgba(220,140,40,.06); }
+    .sgroup-experimental-toggle.open  { border-bottom-color: rgba(220,160,60,.2); }
+    .sgroup-experimental-toggle.open .adv-arrow { transform: rotate(90deg); }
+    .adv-arrow { display:inline-block; transition: transform .2s; margin-right:6px; font-size:10px; color:#555; }
+    #experimental-body { display:none; }
+    #experimental-body.open { display:block; }
+
+    /* Triton status badge colors */
+    .triton-ok    { background:rgba(80,200,100,.15)!important; color:#7de0a0!important; border-color:rgba(80,200,100,.3)!important; }
+    .triton-missing { background:rgba(220,80,80,.15)!important; color:#e08080!important; border-color:rgba(220,80,80,.3)!important; }
+    .triton-incompat { background:rgba(220,160,40,.15)!important; color:#e0c070!important; border-color:rgba(220,160,40,.3)!important; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ══ SIDEBAR ══════════════════════════════════════════
+       Estrutura UNIFICADA com Image/Video/Audio/Motion:
+       .sidebar > .sidebar-logo > .logo-acs + .logo-sub
+                > .nav-section > .nav-group-label + .nav-item + .nav-ic + .nav-badge
+                > .sidebar-foot > .sys-status
+       ══════════════════════════════════════════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Create</div>
+      <a class="nav-item" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">Nano</span></a>
+      <a class="nav-item" href="/studio/video"><span class="nav-ic">▶</span>Video<span class="nav-badge">Pro</span></a>
+      <a class="nav-item" href="/studio/audio"><span class="nav-ic">♪</span>Audio<span class="nav-badge">Studio</span></a>
+      <a class="nav-item" href="/studio/motion"><span class="nav-ic">⟳</span>Motion<span class="nav-badge">Control</span></a>
+      <div class="nav-group-label" style="margin-top:8px">Library</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">System</div>
+      <a class="nav-item active" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot"><div class="sys-status"><span class="sys-dot"></span>System Online</div></div>
+  </aside>
+
+  <!-- ══ CANVAS ════════════════════════════════════════════ -->
+  <main class="settings-canvas">
+    <!-- Hero glows tênues (mesma família visual das outras tabs) -->
+    <div class="hero-glow hero-glow-settings-a" aria-hidden="true"></div>
+    <div class="hero-glow hero-glow-settings-b" aria-hidden="true"></div>
+    <!-- Status bar "ACS Studio conectado" — toast unificado -->
+    <div class="status-bar" id="status-bar"></div>
+
+    <!-- Header -->
+    <div class="settings-header">
+      <div class="settings-header-top">
+        <div>
+          <div class="settings-title">Settings</div>
+          <div class="settings-subtitle" id="version-info" style="display:flex;gap:8px;margin-top:4px;font-size:10px;color:#444">
+            Carregando versão…
+          </div>
+        </div>
+        <div class="settings-actions">
+          <button class="s-btn s-btn-secondary" id="btn-backup" title="Criar backup manual das configurações">
+            ↓ Backup
+          </button>
+          <button class="s-btn s-btn-primary" id="btn-save" disabled>Salvar</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="settings-tabs">
+        <button class="stab active" data-tab="performance">Performance</button>
+        <button class="stab" data-tab="output">Output</button>
+        <button class="stab" data-tab="media">Mídia</button>
+        <button class="stab" data-tab="interface">Interface</button>
+        <button class="stab" data-tab="backups" style="display:none">Backups</button>
+      </div>
+    </div>
+
+    <!-- Aviso de restart -->
+    <div class="restart-banner" id="restart-banner">
+      <span class="restart-banner-icon">⚠</span>
+      <div class="restart-banner-text">
+        <span id="restart-banner-desc">As seguintes configurações requerem <strong>reinicialização do Motor de IA</strong> para surtir efeito:</span>
+        <span class="restart-banner-keys" id="restart-banner-keys"></span>
+      </div>
+    </div>
+
+    <!-- Estado de loading -->
+    <div id="s-loading" class="s-loading">
+      <div class="s-spinner"></div>
+      <span>Carregando configurações…</span>
+    </div>
+
+    <!-- Estado de erro -->
+    <div id="s-error-state" class="s-error-state">
+      <div class="s-error-icon">⚠</div>
+      <div class="s-error-title">Não foi possível carregar as configurações</div>
+      <div class="s-error-desc">Verifique se o ACS Studio está em execução e tente recarregar a página.</div>
+      <button class="s-btn s-btn-secondary" onclick="location.reload()">Recarregar</button>
+    </div>
+
+    <!-- Corpo -->
+    <div class="settings-body">
+
+      <!-- ══ PANEL: PERFORMANCE ══════════════════════════ -->
+      <div class="settings-panel active" id="panel-performance">
+
+        <!-- Aviso Fase 2 -->
+        <div class="sgroup" style="background:transparent;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+          <div class="phase2-notice" style="padding:14px 20px;background:rgba(255,255,255,.025);border-bottom:none;border-radius:10px">
+            <span style="font-size:13px">🔓</span>
+            <div>
+              <strong>Performance — Fase 2 Ativa</strong><br>
+              Todos os controles de performance estão desbloqueados. Resoluções 4K e máximo de Estilos
+              permanecem somente-leitura por exigirem validação de hardware específico.
+              Configurações marcadas com <strong>Restart</strong> requerem reinicialização do Motor de IA.
+            </div>
+          </div>
+        </div>
+
+        <!-- Profile de memória -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🧠</span>
+            <span class="sgroup-title">Perfil de Memória</span>
+            <span class="sgroup-desc">RAM + VRAM</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="profile">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="profile">
+            <div class="srow-label">
+              <div class="srow-name">Perfil de Vídeo <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Gerenciamento de RAM/VRAM para geração de vídeo.<br>
+                1=24GB VRAM · 2=12GB VRAM · 4=8–12GB VRAM (recomendado) · 5=modo failsafe</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="video_profile" data-group="profile" data-default="4">
+                <option value="1">1 — HighRAM / HighVRAM (24GB+)</option>
+                <option value="2">2 — HighRAM / LowVRAM (12GB)</option>
+                <option value="3">3 — LowRAM / HighVRAM</option>
+                <option value="3.5">3.5 — VeryLowRAM / HighVRAM</option>
+                <option value="4">4 — LowRAM / LowVRAM ✦ Recomendado</option>
+                <option value="4.5">4.5 — LowRAM / LowVRAM+</option>
+                <option value="5">5 — VeryLowRAM / VeryLowVRAM (failsafe)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="profile">
+            <div class="srow-label">
+              <div class="srow-name">Perfil de Imagem <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Gerenciamento de RAM/VRAM para geração de imagem</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="image_profile" data-group="profile" data-default="2">
+                <option value="1">1 — HighRAM / HighVRAM</option>
+                <option value="2">2 — HighRAM / LowVRAM ✦ Recomendado</option>
+                <option value="3">3 — LowRAM / HighVRAM</option>
+                <option value="3.5">3.5 — VeryLowRAM / HighVRAM</option>
+                <option value="4">4 — LowRAM / LowVRAM</option>
+                <option value="4.5">4.5 — LowRAM / LowVRAM+</option>
+                <option value="5">5 — Failsafe</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="profile">
+            <div class="srow-label">
+              <div class="srow-name">Perfil de Áudio <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Gerenciamento de memória para TTS e MMAudio</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="audio_profile" data-group="profile" data-default="2">
+                <option value="1">1 — HighVRAM</option>
+                <option value="2">2 — Balanceado ✦ Recomendado</option>
+                <option value="3">3 — LowVRAM</option>
+                <option value="3.5">3.5 — VeryLowVRAM</option>
+                <option value="4">4 — Mínimo</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Atenção e Quantização -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">⚡</span>
+            <span class="sgroup-title">Atenção & Quantização</span>
+            <span class="sgroup-desc">Velocidade vs compatibilidade</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="attn">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="attn">
+            <div class="srow-label">
+              <div class="srow-name">Modo de Atenção <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Mecanismo de atenção do transformer.<br>
+                <strong>auto</strong>: detecta melhor opção · <strong>sdpa</strong>: padrão PyTorch ·
+                <strong>flash</strong>: requer Flash Attention instalado</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="attention_mode" data-group="attn" data-default="auto">
+                <option value="auto">auto — Detectar automaticamente ✦</option>
+                <option value="sdpa">sdpa — PyTorch nativo</option>
+                <option value="flash">flash — Flash Attention</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="attn">
+            <div class="srow-label">
+              <div class="srow-name">Quantização do Transformer <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Precisão dos pesos do modelo principal.<br>
+                <strong>int8</strong>: metade da VRAM · <strong>fp8</strong>: ultra-econômico · <strong>bf16</strong>: qualidade máxima (requer +VRAM)</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="transformer_quantization" data-group="attn" data-default="int8">
+                <option value="int8">int8 — Econômico ✦ Recomendado</option>
+                <option value="fp8">fp8 — Ultra-econômico</option>
+                <option value="bf16">bf16 — Qualidade máxima</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="attn">
+            <div class="srow-label">
+              <div class="srow-name">Quantização do Text Encoder <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Precisão do encoder de texto. Menor impacto na qualidade final que o transformer.</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="text_encoder_quantization" data-group="attn" data-default="int8">
+                <option value="int8">int8 ✦ Recomendado</option>
+                <option value="fp8">fp8 — Ultra-econômico</option>
+                <option value="bf16">bf16 — Qualidade máxima</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Kernels & Aceleração -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🔧</span>
+            <span class="sgroup-title">Kernels & Aceleração</span>
+            <span class="sgroup-desc">Otimizações de hardware</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="kernels">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="kernels">
+            <div class="srow-label">
+              <div class="srow-name">Kernels INT8 <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Kernels otimizados Quanto para operações INT8.<br>
+                <strong>Scaled INT8 (Quanto)</strong>: ganho de ~20–30% em hardware compatível (RTX 3000+).<br>
+                Desativar apenas em GPUs antigas com problemas de compatibilidade.</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="enable_int8_kernels" data-group="kernels" data-default="1">
+                <option value="0">Off — Desativado</option>
+                <option value="1">Scaled INT8 — Quanto ✦ Recomendado</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="kernels">
+            <div class="srow-label">
+              <div class="srow-name">Boost Mode <span class="badge badge-restart">Restart</span></div>
+              <div class="srow-desc">Otimizações adicionais de CUDA (graphs, cuDNN). Ganho de ~5–10%.</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input" data-key="boost" data-group="kernels" data-default="1" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <div class="srow" data-group="kernels" data-phase2>
+            <div class="srow-label">
+              <div class="srow-name">Resoluções 4K <span class="badge badge-danger">Alto Risco</span> <span class="badge badge-phase2">Fase 2</span></div>
+              <div class="srow-desc">Ativa resoluções 4K e acima. Requer 48GB+ VRAM.<br>
+                ⚠ Pode causar Out-of-Memory em GPUs convencionais.</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input" data-key="enable_4k_resolutions" data-group="kernels" data-default="0" disabled />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Avançado: Max LoRAs -->
+          <div class="sgroup-adv-toggle">
+            <span class="adv-arrow">▶</span> Avançado
+          </div>
+          <div class="sgroup-adv-body">
+            <div class="srow" data-group="kernels" data-phase2>
+              <div class="srow-label">
+                <div class="srow-name">Máximo de Estilos em Memória <span class="badge badge-phase2">Fase 2</span></div>
+                <div class="srow-desc">Limite de Estilos simultâneos em VRAM. –1 = ilimitado.</div>
+              </div>
+              <div class="srow-control">
+                <div class="s-slider-wrap">
+                  <input type="range" class="s-slider" min="-1" max="8" step="1"
+                         data-key="max_reserved_loras" data-group="kernels" data-default="-1" disabled />
+                  <span class="s-slider-val">–1</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══ AVANÇADO / EXPERIMENTAL (colapsável) ═══════════════ -->
+        <div class="sgroup sgroup--experimental" id="sgroup-experimental">
+
+          <!-- Toggle do colapsável -->
+          <div class="sgroup-adv-toggle sgroup-experimental-toggle" id="experimental-toggle">
+            <span class="adv-arrow">▶</span>
+            <span style="font-size:11px;font-weight:700;letter-spacing:.04em">⚗ Avançado / Experimental</span>
+            <span id="triton-badge-header" style="margin-left:8px;font-size:9px;padding:2px 7px;border-radius:10px;font-weight:700;display:none"></span>
+            <span style="font-size:10px;color:#555;margin-left:8px;font-weight:400">— Risco de quebrar geração se mal configurado</span>
+          </div>
+
+          <div class="sgroup-adv-body" id="experimental-body">
+
+            <!-- ─── Status Triton ─── -->
+            <div class="srow-separator" style="padding:14px 20px 0">
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#555;text-transform:uppercase;margin-bottom:10px">Triton Backend</div>
+              <div id="triton-status-card"
+                   style="display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.03);margin-bottom:4px">
+                <div id="triton-status-icon" style="font-size:18px;line-height:1;margin-top:1px">⋯</div>
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+                    <span style="font-size:12px;font-weight:600;color:#e0e0e0">Status do Triton</span>
+                    <span id="triton-status-badge"
+                          style="font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;background:rgba(255,255,255,.08);color:#888">
+                      Detectando…
+                    </span>
+                  </div>
+                  <div id="triton-status-msg" style="font-size:11px;color:#555;line-height:1.6">Aguardando detecção…</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ─── Compilar Transformer ─── -->
+            <div class="srow" data-group="compile" style="border-top:1px solid rgba(255,255,255,.05);margin-top:8px">
+              <div class="srow-label">
+                <div class="srow-name">
+                  Compilar Transformer
+                  <span class="badge badge-restart">Restart</span>
+                  <span class="badge badge-danger" style="background:rgba(220,80,80,.15);color:#e07070;border-color:rgba(220,80,80,.3)">Experimental</span>
+                </div>
+                <div class="srow-desc">
+                  Compila o transformer com <code>torch.compile</code> (backend <strong>inductor</strong>, requer Triton).<br>
+                  Primeira geração será mais lenta (compilação JIT). Gerações seguintes ganham ~10–20%.<br>
+                  <span id="compile-triton-warn" style="display:none;color:#e07070;font-weight:600">
+                    ⚠ Triton não está funcional — ativação bloqueada pelo servidor.
+                  </span>
+                </div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" id="compile-select" data-key="compile" data-group="compile" data-default="">
+                  <option value="">Off — Desativado ✦ Recomendado</option>
+                  <option value="transformer">transformer — Compilar (requer Triton)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ─── Tipo de Dado do Transformer ─── -->
+            <div class="srow" data-group="compile">
+              <div class="srow-label">
+                <div class="srow-name">Tipo de Dado do Transformer <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Forçar dtype de pesos/ativações do transformer.<br>
+                  <strong>auto</strong>: o modelo decide · <strong>bf16</strong>: força BFloat16 · <strong>fp16</strong>: força Float16</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="transformer_dtype_policy" data-group="compile" data-default="">
+                  <option value="">auto — Deixar modelo decidir ✦</option>
+                  <option value="bf16">bf16 — Forçar BFloat16</option>
+                  <option value="fp16">fp16 — Forçar Float16</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ─── VAE ─── -->
+            <div style="padding:12px 20px 0">
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#555;text-transform:uppercase;margin-bottom:6px">VAE — Encode & Decode</div>
+            </div>
+
+            <div class="srow" data-group="vae">
+              <div class="srow-label">
+                <div class="srow-name">Precisão do VAE <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Precisão numérica do encoder/decoder VAE.<br>
+                  <strong>fp16</strong>: mais rápido, usa menos VRAM · <strong>fp32</strong>: maior precisão, pode reduzir artefatos</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="vae_precision" data-group="vae" data-default="16">
+                  <option value="16">fp16 — Rápido ✦ Recomendado</option>
+                  <option value="32">fp32 — Alta precisão</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="srow" data-group="vae">
+              <div class="srow-label">
+                <div class="srow-name">VAE Tiling <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Divide encode/decode em tiles para economizar VRAM em resoluções altas.<br>
+                  <strong>Auto</strong>: modelo decide · <strong>Conservador</strong>: tiles moderados · <strong>Agressivo</strong>: tiles máximos</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="vae_config" data-group="vae" data-default="0">
+                  <option value="0">0 — Auto (modelo decide) ✦</option>
+                  <option value="1">1 — Tiling conservador</option>
+                  <option value="2">2 — Tiling agressivo (máxima economia de VRAM)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- ─── Engine & Preload ─── -->
+            <div style="padding:12px 20px 0">
+              <div style="font-size:9.5px;font-weight:700;letter-spacing:.08em;color:#555;text-transform:uppercase;margin-bottom:6px">Engine & Preload</div>
+            </div>
+
+            <div class="srow" data-group="engine">
+              <div class="srow-label">
+                <div class="srow-name">Engine do LM Decoder <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Motor de inferência para o Language Model (prompt enhancer, TTS).<br>
+                  <strong>auto</strong>: Motor decide · <strong>legacy</strong>: PyTorch padrão (mais seguro) ·
+                  <strong>cg</strong>: CUDA Graphs (requer perfil 1 ou 3) · <strong>vllm</strong>: vLLM (requer perfil 1 ou 3)</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="lm_decoder_engine" data-group="engine" data-default="">
+                  <option value="">auto — Motor decide ✦</option>
+                  <option value="legacy">legacy — PyTorch padrão</option>
+                  <option value="cg">cg — CUDA Graphs (alto VRAM)</option>
+                  <option value="vllm">vllm — vLLM (alto VRAM)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="srow" data-group="engine">
+              <div class="srow-label">
+                <div class="srow-name">Política de Preload <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Controla quando o modelo é carregado/descarregado na VRAM.<br>
+                  <strong>Off</strong>: comportamento padrão · <strong>Primeira Geração</strong>: carrega ao gerar ·
+                  <strong>Startup</strong>: carrega ao inicializar · <strong>Startup + Auto-descarregar</strong>: carrega e remove após fila</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="preload_model_policy" data-type="array-preset"
+                        data-group="engine" data-default="">
+                  <option value="">Off — Comportamento padrão ✦</option>
+                  <option value="S">["S"] — Carregar na primeira geração</option>
+                  <option value="P">["P"] — Precarregar no startup</option>
+                  <option value="PU">["P","U"] — Startup + descarregar ao terminar fila</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="srow" data-group="engine">
+              <div class="srow-label">
+                <div class="srow-name">Manter Modelo em VRAM <span class="badge badge-restart">Restart</span></div>
+                <div class="srow-desc">Mantém o modelo completamente na VRAM entre gerações (sem offloading).<br>
+                  Requer VRAM suficiente para todo o modelo. Gerações mais rápidas, sem tempo de reload.</div>
+              </div>
+              <div class="srow-control">
+                <label class="s-toggle">
+                  <input type="checkbox" class="s-toggle-input" data-key="preload_in_VRAM"
+                         data-group="engine" data-default="0" />
+                  <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+                </label>
+              </div>
+            </div>
+
+          </div><!-- /experimental-body -->
+        </div><!-- /sgroup--experimental -->
+
+      </div><!-- /panel-performance -->
+
+
+      <!-- ══ PANEL: OUTPUT ═══════════════════════════════ -->
+      <div class="settings-panel" id="panel-output">
+
+        <!-- Pastas de saída -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">📁</span>
+            <span class="sgroup-title">Pastas de Saída</span>
+            <span class="sgroup-desc">Onde os arquivos gerados são salvos</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="paths">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="paths">
+            <div class="srow-label">
+              <div class="srow-name">Pasta de Vídeo</div>
+              <div class="srow-desc">Diretório principal para vídeos gerados</div>
+              <div class="s-path-hint" style="font-size:10px;color:#444;margin-top:3px"></div>
+            </div>
+            <div class="srow-control">
+              <div class="s-path-wrap">
+                <input type="text" class="s-path-input" data-key="save_path" data-group="paths" data-default="outputs" />
+                <button class="s-path-btn" onclick="validatePathBtn('save_path')">Validar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="srow" data-group="paths">
+            <div class="srow-label">
+              <div class="srow-name">Pasta de Imagem</div>
+              <div class="srow-desc">Diretório para imagens geradas. Vazio = usa pasta de vídeo</div>
+              <div class="s-path-hint" style="font-size:10px;color:#444;margin-top:3px"></div>
+            </div>
+            <div class="srow-control">
+              <div class="s-path-wrap">
+                <input type="text" class="s-path-input" data-key="image_save_path" data-group="paths" data-default="outputs" />
+                <button class="s-path-btn" onclick="validatePathBtn('image_save_path')">Validar</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="srow" data-group="paths">
+            <div class="srow-label">
+              <div class="srow-name">Pasta de Áudio</div>
+              <div class="srow-desc">Diretório para áudio gerado (TTS, MMAudio). Vazio = usa pasta de vídeo</div>
+              <div class="s-path-hint" style="font-size:10px;color:#444;margin-top:3px"></div>
+            </div>
+            <div class="srow-control">
+              <div class="s-path-wrap">
+                <input type="text" class="s-path-input" data-key="audio_save_path" data-group="paths" data-default="outputs" />
+                <button class="s-path-btn" onclick="validatePathBtn('audio_save_path')">Validar</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Avançado: loras_root -->
+          <div class="sgroup-adv-toggle">
+            <span class="adv-arrow">▶</span> Avançado
+          </div>
+          <div class="sgroup-adv-body">
+            <div class="srow" data-group="paths">
+              <div class="srow-label">
+                <div class="srow-name">Pasta de Estilos</div>
+                <div class="srow-desc">Diretório raiz para arquivos de estilo</div>
+                <div class="s-path-hint" style="font-size:10px;color:#444;margin-top:3px"></div>
+              </div>
+              <div class="srow-control">
+                <div class="s-path-wrap">
+                  <input type="text" class="s-path-input" data-key="loras_root" data-group="paths" data-default="loras" />
+                  <button class="s-path-btn" onclick="validatePathBtn('loras_root')">Validar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Codec de vídeo -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🎬</span>
+            <span class="sgroup-title">Codec de Vídeo</span>
+            <span class="sgroup-desc">Formato de saída dos vídeos</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="codec">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="codec">
+            <div class="srow-label">
+              <div class="srow-name">Codec de Vídeo</div>
+              <div class="srow-desc"><strong>H.264 (libx264)</strong>: compatibilidade máxima ·
+                <strong>H.265 (libx265)</strong>: menor tamanho · <strong>ProRes</strong>: edição</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="video_output_codec" data-group="codec" data-default="libx264_8">
+                <option value="libx264_8">H.264 CRF-8 ✦ Recomendado</option>
+                <option value="libx264_10">H.264 CRF-10</option>
+                <option value="libx265_8">H.265/HEVC CRF-8</option>
+                <option value="libx265_10">H.265/HEVC CRF-10</option>
+                <option value="prores_4444">ProRes 4444</option>
+                <option value="prores_422">ProRes 422 HQ</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="codec">
+            <div class="srow-label">
+              <div class="srow-name">CRF de Vídeo HDR</div>
+              <div class="srow-desc">Qualidade da compressão HDR (0 = lossless · 51 = máxima compressão).<br>
+                Padrão: 8 · valores menores = melhor qualidade, arquivo maior.</div>
+            </div>
+            <div class="srow-control">
+              <div class="s-slider-wrap">
+                <input type="range" class="s-slider" min="0" max="51" step="1"
+                       data-key="hdr_video_crf" data-group="codec" data-default="8" />
+                <span class="s-slider-val">8</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="srow" data-group="codec">
+            <div class="srow-label">
+              <div class="srow-name">Container</div>
+              <div class="srow-desc">Formato do arquivo de vídeo</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="video_container" data-group="codec" data-default="mp4">
+                <option value="mp4">MP4 ✦ Universal</option>
+                <option value="mkv">MKV — mais codecs</option>
+                <option value="mov">MOV — Apple/ProRes</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="codec">
+            <div class="srow-label">
+              <div class="srow-name">Imagens de Referência no Arquivo</div>
+              <div class="srow-desc">Embute start/end frame como metadata no vídeo final</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input" data-key="embed_source_images" data-group="codec" data-default="0" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Avançado: image e audio codec -->
+          <div class="sgroup-adv-toggle">
+            <span class="adv-arrow">▶</span> Codec de Imagem & Áudio
+          </div>
+          <div class="sgroup-adv-body">
+            <div class="srow" data-group="codec">
+              <div class="srow-label">
+                <div class="srow-name">Codec de Imagem</div>
+                <div class="srow-desc">Formato para imagens geradas</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="image_output_codec" data-group="codec" data-default="jpeg_95">
+                  <option value="jpeg_95">JPEG Q95 ✦</option>
+                  <option value="jpeg_85">JPEG Q85</option>
+                  <option value="jpeg_75">JPEG Q75</option>
+                  <option value="png">PNG (lossless)</option>
+                  <option value="webp_95">WebP Q95</option>
+                  <option value="webp_80">WebP Q80</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="srow" data-group="codec">
+              <div class="srow-label">
+                <div class="srow-name">Codec de Áudio no Vídeo</div>
+                <div class="srow-desc">Codec para áudio embedido em vídeos gerados</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="audio_output_codec" data-group="codec" data-default="aac_128">
+                  <option value="aac_128">AAC 128kbps ✦</option>
+                  <option value="aac_192">AAC 192kbps</option>
+                  <option value="aac_256">AAC 256kbps</option>
+                  <option value="mp3_192">MP3 192kbps</option>
+                  <option value="mp3_320">MP3 320kbps</option>
+                  <option value="opus_128">Opus 128kbps</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="srow" data-group="codec">
+              <div class="srow-label">
+                <div class="srow-name">Codec de Áudio Standalone</div>
+                <div class="srow-desc">Formato para arquivos de áudio (TTS, MMAudio)</div>
+              </div>
+              <div class="srow-control">
+                <select class="s-select" data-key="audio_stand_alone_output_codec" data-group="codec" data-default="wav">
+                  <option value="wav">WAV — Sem perda ✦</option>
+                  <option value="flac">FLAC — Sem perda comprimido</option>
+                  <option value="mp3">MP3</option>
+                  <option value="aac">AAC</option>
+                  <option value="ogg">OGG Vorbis</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-output -->
+
+
+      <!-- ══ PANEL: MÍDIA ════════════════════════════════ -->
+      <div class="settings-panel" id="panel-media">
+
+        <!-- MMAudio -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🎵</span>
+            <span class="sgroup-title">MMAudio — Síntese de Áudio</span>
+            <span class="sgroup-desc">Geração automática de trilha sonora</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="mmaudio">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="mmaudio">
+            <div class="srow-label">
+              <div class="srow-name">Modo MMAudio</div>
+              <div class="srow-desc">Geração de áudio sincronizado após renderização de vídeo.<br>
+                Requer ~2GB VRAM adicional e modelos instalados em <code style="color:#555">ckpts/mmaudio/</code></div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="mmaudio_mode" data-group="mmaudio" data-default="0">
+                <option value="0">Desativado ✦</option>
+                <option value="1">MMAudio v2</option>
+                <option value="2">MMAudio (novo)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="mmaudio">
+            <div class="srow-label">
+              <div class="srow-name">Persistência do Modelo</div>
+              <div class="srow-desc">Estratégia de cache do modelo MMAudio entre gerações</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="mmaudio_persistence" data-group="mmaudio" data-default="1">
+                <option value="1">Descarregar após uso (economiza VRAM) ✦</option>
+                <option value="2">Manter em VRAM (mais rápido)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompt Enhancer -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">✨</span>
+            <span class="sgroup-title">Prompt Enhancer</span>
+            <span class="sgroup-desc">LLM que melhora prompts automaticamente</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="enhancer">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="enhancer">
+            <div class="srow-label">
+              <div class="srow-name">Temperature</div>
+              <div class="srow-desc">Criatividade do enhancer. Valores altos = mais variação, menos coerência.</div>
+            </div>
+            <div class="srow-control">
+              <div class="s-slider-wrap">
+                <input type="range" class="s-slider" min="0" max="2" step="0.05"
+                       data-key="prompt_enhancer_temperature" data-group="enhancer" data-default="0.6" />
+                <span class="s-slider-val">0.6</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="srow" data-group="enhancer">
+            <div class="srow-label">
+              <div class="srow-name">Top-P (Nucleus Sampling)</div>
+              <div class="srow-desc">Controla diversidade de tokens. 0.9 = padrão estável.</div>
+            </div>
+            <div class="srow-control">
+              <div class="s-slider-wrap">
+                <input type="range" class="s-slider" min="0" max="1" step="0.05"
+                       data-key="prompt_enhancer_top_p" data-group="enhancer" data-default="0.9" />
+                <span class="s-slider-val">0.9</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="srow" data-group="enhancer">
+            <div class="srow-label">
+              <div class="srow-name">Seed Aleatória</div>
+              <div class="srow-desc">Gera resultados diferentes a cada enhancement</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input" data-key="prompt_enhancer_randomize_seed"
+                       data-group="enhancer" data-default="1" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fila / Queue -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">⏱</span>
+            <span class="sgroup-title">Fila de Processamento</span>
+            <span class="sgroup-desc">Comportamento da fila de geração</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="queue">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="queue">
+            <div class="srow-label">
+              <div class="srow-name">Processar com Aba Desfocada</div>
+              <div class="srow-desc">Continua a fila mesmo se a aba do browser não estiver ativa</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input"
+                       data-key="process_queues_when_browser_unfocused" data-group="queue" data-default="1" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <div class="srow" data-group="queue">
+            <div class="srow-label">
+              <div class="srow-name">Salvar Fila em Crash</div>
+              <div class="srow-desc">Persiste a fila de geração em caso de crash inesperado</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input"
+                       data-key="save_queue_if_crash" data-group="queue" data-default="1" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <div class="srow" data-group="queue">
+            <div class="srow-label">
+              <div class="srow-name">Manter Janelas Intermediárias</div>
+              <div class="srow-desc">Salva frames intermediários de gerações longas (sliding window)</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input"
+                       data-key="keep_intermediate_sliding_windows" data-group="queue" data-default="1" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-media -->
+
+
+      <!-- ══ PANEL: INTERFACE ════════════════════════════ -->
+      <div class="settings-panel" id="panel-interface">
+
+        <!-- ── ACS Studio UI Scale ─────────────────────────────────────────── -->
+        <div class="sgroup" style="margin-bottom:20px">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🔍</span>
+            <span class="sgroup-title">Escala da Interface — ACS Studio</span>
+            <span class="sgroup-desc">Zoom do Studio no launcher. Atual: <strong id="ui-scale-current">100%</strong></span>
+          </div>
+
+          <div class="srow">
+            <div class="srow-label">
+              <div class="srow-name">Escala</div>
+              <div class="srow-desc">
+                Ajusta o zoom de toda a interface do ACS Studio.<br>
+                Útil em telas 4K ou para melhorar legibilidade.<br>
+                <span style="color:#888;font-size:10px">Requer reiniciar o ACS para aplicar.</span>
+              </div>
+            </div>
+            <div class="srow-control" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <button class="scale-btn s-btn s-btn-secondary" data-scale="90"
+                      style="min-width:52px;font-size:11px">90%</button>
+              <button class="scale-btn s-btn s-btn-secondary" data-scale="100"
+                      style="min-width:52px;font-size:11px">100%</button>
+              <button class="scale-btn s-btn s-btn-secondary" data-scale="110"
+                      style="min-width:52px;font-size:11px">110%</button>
+              <button class="scale-btn s-btn s-btn-secondary" data-scale="125"
+                      style="min-width:52px;font-size:11px">125%</button>
+            </div>
+          </div>
+        </div>
+        <!-- /ACS UI Scale -->
+
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🎨</span>
+            <span class="sgroup-title">Aparência</span>
+            <span class="sgroup-desc">Visual e notificações</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="ui">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="ui">
+            <div class="srow-label">
+              <div class="srow-name">Tema do Motor</div>
+              <div class="srow-desc">Tema da interface do Motor de IA</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="UI_theme" data-group="ui" data-default="default">
+                <option value="default">Default ✦</option>
+                <option value="dark">Dark</option>
+                <option value="light">Light</option>
+                <option value="soft">Soft</option>
+                <option value="glass">Glass</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="srow" data-group="ui">
+            <div class="srow-label">
+              <div class="srow-name">Esquema de Cores da Fila</div>
+              <div class="srow-desc">Paleta de cores da fila de geração</div>
+            </div>
+            <div class="srow-control">
+              <select class="s-select" data-key="queue_color_scheme" data-group="ui" data-default="pastel">
+                <option value="pastel">Pastel ✦</option>
+                <option value="dark">Dark</option>
+                <option value="bright">Bright</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Notificações -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">🔔</span>
+            <span class="sgroup-title">Notificações</span>
+            <span class="sgroup-desc">Som ao terminar geração</span>
+            <button class="s-btn s-btn-secondary" style="padding:4px 10px;font-size:10px;margin-left:8px"
+                    data-restore-group="notif">Restaurar</button>
+          </div>
+
+          <div class="srow" data-group="notif">
+            <div class="srow-label">
+              <div class="srow-name">Som de Notificação</div>
+              <div class="srow-desc">Toca um som quando a geração termina</div>
+            </div>
+            <div class="srow-control">
+              <label class="s-toggle">
+                <input type="checkbox" class="s-toggle-input"
+                       data-key="notification_sound_enabled" data-group="notif" data-default="0" />
+                <div class="s-toggle-track"><div class="s-toggle-thumb"></div></div>
+              </label>
+            </div>
+          </div>
+
+          <div class="srow" data-group="notif">
+            <div class="srow-label">
+              <div class="srow-name">Volume da Notificação</div>
+              <div class="srow-desc">Volume do som de notificação (0–100)</div>
+            </div>
+            <div class="srow-control">
+              <div class="s-slider-wrap">
+                <input type="range" class="s-slider" min="0" max="100" step="5"
+                       data-key="notification_sound_volume" data-group="notif" data-default="50" />
+                <span class="s-slider-val">50</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Restaurar tudo -->
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">↺</span>
+            <span class="sgroup-title">Restaurar Padrões</span>
+            <span class="sgroup-desc">Reversão completa</span>
+          </div>
+          <div class="srow">
+            <div class="srow-label">
+              <div class="srow-name">Restaurar todos os settings</div>
+              <div class="srow-desc">Reseta <strong>todos</strong> os settings para os valores padrão do sistema.<br>
+                Um backup automático será criado antes da operação.</div>
+            </div>
+            <div class="srow-control">
+              <button class="s-btn s-btn-danger" id="btn-restore-all">↺ Restaurar Tudo</button>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /panel-interface -->
+
+
+      <!-- ══ PANEL: BACKUPS ══════════════════════════════ -->
+      <div class="settings-panel" id="panel-backups">
+
+        <div class="sgroup">
+          <div class="sgroup-header">
+            <span class="sgroup-icon">💾</span>
+            <span class="sgroup-title">Backups de Configuração</span>
+            <span class="sgroup-desc">Automáticos a cada save · até 10 versões</span>
+          </div>
+          <div class="backup-list" id="backup-list">
+            <div class="backup-item" style="color:var(--text-dim)">Carregando…</div>
+          </div>
+        </div>
+
+        <div style="margin-top:12px;font-size:10.5px;color:var(--text-dim);padding:0 4px;line-height:1.8">
+          Backups ficam em
+          <code style="color:#555;font-size:10px">Motor de IA / Backups de configuração</code>.<br>
+          Um backup é criado automaticamente antes de cada Salvar.<br>
+          Para restaurar: copie o arquivo para
+          <code style="color:#555;font-size:10px">configuração do Motor de IA</code> e reinicie o Motor de IA.
+        </div>
+
+      </div><!-- /panel-backups -->
+
+    </div><!-- /settings-body -->
+  </main>
+</div><!-- /shell -->
+
+<!-- Toast de feedback -->
+<div class="s-toast" id="s-toast">
+  <span class="s-toast-text"></span>
+</div>
+
+<script>
+function validatePathBtn(key) {
+  const el = document.querySelector(`[data-key="${key}"]`);
+  if (el) el.dispatchEvent(new Event("change", { bubbles: true }));
+}
+</script>
+<script src="settings.js?v=3"></script>
+<script>
+  /* Status-bar "ACS Studio conectado" — health check no boot (compartilhado entre tabs) */
+  (function(){
+    const sb = document.getElementById("status-bar");
+    if (!sb) return;
+    const show = (msg, type) => { sb.textContent = msg; sb.className = `status-bar visible ${type||""}`; };
+    const hide = () => sb.classList.remove("visible");
+    fetch("/health").then(r => r.json()).then(d => {
+      if (d && d.status === "ok") { show("ACS Studio conectado ✦", "done"); setTimeout(hide, 2500); }
+      else { show("Conectando ao motor...", "loading"); setTimeout(hide, 3500); }
+    }).catch(() => { show("Sem conexão com o motor", "error"); setTimeout(hide, 4000); });
+  })();
+</script>
+</body>
+</html>

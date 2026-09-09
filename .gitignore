@@ -23,6 +23,12 @@ studio/projects/*
 !studio/projects/.gitkeep
 studio/.env
 
+# Real ACS backend (adopted 2026-09-09) — runtime/output state, never source
+studio/backend/outputs/*
+!studio/backend/outputs/.gitkeep
+studio/backend/runtime/
+studio/backend/__pycache__/
+
 # Editors / OS
 .DS_Store
 .vscode/

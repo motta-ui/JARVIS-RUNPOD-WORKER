@@ -1,0 +1,697 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACS Studio — Video</title>
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <link rel="stylesheet" href="../media-browser.css?v=3" />
+  <script src="../gallery-delete.js?v=1" defer></script>
+  <link rel="stylesheet" href="./video.css?v=73" />
+  <link rel="stylesheet" href="../tooltip.css?v=1" />
+</head>
+<body>
+<div class="studio">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Criar</div>
+      <a class="nav-item" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">Nano</span></a>
+      <a class="nav-item active" href="/studio/video"><span class="nav-ic">▶</span>Video<span class="nav-badge">Pro</span></a>
+      <a class="nav-item" href="/studio/audio"><span class="nav-ic">♪</span>Audio<span class="nav-badge">Studio</span></a>
+      <a class="nav-item" href="/studio/motion"><span class="nav-ic">⟳</span>Motion<span class="nav-badge">Control</span></a>
+      <div class="nav-group-label" style="margin-top:8px">Biblioteca</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">Sistema</div>
+      <a class="nav-item" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="sys-status"><span class="sys-dot"></span>Sistema Online</div>
+    </div>
+  </aside>
+
+  <div class="video-canvas">
+    <div class="status-bar" id="status-bar"></div>
+    <!-- [v49] Topbar persistente — alinha com Image / Motion / Audio tabs -->
+    <header class="topbar">
+      <span class="topbar-brand-wrap"><span class="topbar-brand">AI Cinematic Studio</span><span class="topbar-unlimited">UNLIMITED</span></span>
+      <div class="topbar-right">
+        <button class="topbar-pill topbar-pill-license">◉ Licença Ativa</button>
+        <button class="topbar-pill">AC ▾</button>
+      </div>
+    </header>
+    <div class="hero-glow hero-glow-purple" aria-hidden="true"></div>
+    <div class="hero-glow hero-glow-amber"  aria-hidden="true"></div>
+
+    <section class="hero" id="hero-section">
+      <p class="hero-eyebrow">AI CINEMATIC STUDIO</p>
+      <h1 class="hero-title">O que você quer<br>criar hoje?</h1>
+      <p class="hero-desc">Vídeos cinematográficos com inteligência artificial local,<br>ilimitada e sem mensalidade.</p>
+    </section>
+
+    <!-- Central HUD — shown during generation/download (Phase 3 + HUD redesign) -->
+    <div class="canvas-hud-loading" id="video-loading">
+      <div class="preview-spinner"></div>
+      <div class="hud-main-status" id="vid-hud-status">Inicializando...</div>
+      <!-- [G3-HUD] Step counter + speed — visível apenas durante geração ativa -->
+      <div class="hud-step-info" id="vid-step-info"></div>
+      <div class="hud-bar-row">
+        <div class="preview-progress-bar-wrap"><div class="preview-progress-bar" id="vid-progress-bar"></div></div>
+        <span class="hud-pct" id="vid-hud-pct">0%</span>
+      </div>
+      <div class="preview-progress-label" id="vid-progress-label"></div>
+      <div class="preview-dl-sub" id="vid-dl-sub"></div>
+      <div class="hud-dl-calm" id="vid-dl-calm" style="display:none">Seu computador não está travado.</div>
+    </div>
+
+    <div class="video-player-wrap" id="video-player-wrap">
+      <div class="vp-shell">
+        <video id="video-output" class="vp-video" controls autoplay loop></video>
+        <img id="image-output" class="vp-img" src="" alt="" />
+        <div class="vp-bar">
+          <div class="vp-info">
+            <span id="vp-filename" class="vp-filename"></span>
+            <span id="vp-size" class="vp-size"></span>
+          </div>
+          <div class="vp-btns">
+            <button id="btn-estender" class="vp-btn" style="display:none" title="Continua este vídeo a partir do último frame (gera mais tempo de cena)">⏵ Estender</button>
+            <button id="btn-download" class="vp-btn">⬇ Download</button>
+            <a href="/studio/gallery" class="vp-btn">◈ Galeria</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALERIA LATERAL DIREITA -->
+  <aside class="gallery-panel" id="gallery-panel">
+    <div class="gallery-panel-head">
+      <span class="gallery-panel-title">RECENTES</span>
+      <a href="/studio/gallery" class="gallery-ver-todas">Ver todas →</a>
+    </div>
+    <div class="gallery-panel-grid" id="recent-grid"></div>
+  </aside>
+
+  <!-- Hot zone invisível — aciona auto-hide da galeria -->
+  <div id="gallery-hotzone" class="gallery-hotzone"></div>
+
+</div>
+
+<!-- TOAST -->
+<div class="gen-toast" id="gen-toast"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     PAINEL DE GERAÇÃO
+═══════════════════════════════════════════════════ -->
+<div class="gen-dock" id="gen-dock">
+
+  <!-- ── FAIXA DE MODOS (topo) ─────────────────────────── -->
+  <div class="mode-strip">
+
+    <!-- Modos de geração -->
+    <div class="mode-group">
+      <button class="mpill active" data-mode="t2v"
+        data-acs-tip-title="Texto → Vídeo"
+        data-acs-tip-body="Cria vídeos completos a partir de uma descrição em texto. O modelo interpreta cena, câmera, iluminação e movimento com base no seu prompt."
+        data-acs-tip-tag="T2V · Cinematic">Texto → Vídeo</button>
+      <button class="mpill" data-mode="i2v"
+        data-acs-tip-title="Img → Vídeo"
+        data-acs-tip-body="Anima uma imagem estática de referência. O modelo preserva o sujeito e gera movimento coerente com o prompt e a imagem de entrada."
+        data-acs-tip-tag="I2V · Cinematic">Img → Vídeo</button>
+      <button class="mpill" data-mode="flf"
+        data-acs-tip-title="End Frame (FLF)"
+        data-acs-tip-body="Interpola entre dois quadros — Start Frame e End Frame. Gera a transição cinemática entre as duas imagens com controle total da trajetória."
+        data-acs-tip-tag="First–Last Frame">End Frame</button>
+      <button class="mpill" data-mode="continue"
+        data-acs-tip-title="Continue"
+        data-acs-tip-body="Continua um vídeo existente a partir do último frame. Ideal para extends e takes longos sem corte de cena visível."
+        data-acs-tip-tag="Video Extend">Continue</button>
+      <button class="mpill" data-mode="t2i"
+        data-acs-tip-title="Texto → Imagem"
+        data-acs-tip-body="Gera um frame estático de alta qualidade com o motor Cinematic. Use para criar storyboards e referências visuais antes da geração em vídeo."
+        data-acs-tip-tag="T2I · Cinematic">Texto → Imagem</button>
+      <button class="mpill mpill-dedicated" data-mode="animate" style="display:none"
+        data-acs-tip-title="Animar Personagem"
+        data-acs-tip-body="Anima a FOTO de uma pessoa real usando o movimento de um vídeo guia (pose 3D + recorte automático). Já configura tudo: você só joga a foto e o vídeo de movimento. Use foto de pessoa real, não desenho."
+        data-acs-tip-tag="Personagem">Animar Personagem</button>
+    </div>
+
+    <div class="mstrip-sep"></div>
+
+    <!-- Addons -->
+    <div class="addon-group">
+      <button class="apill" data-addon="end-frame">+ End Frame</button>
+      <button class="apill" data-addon="ctrl-video">+ Ctrl Vídeo</button>
+      <button class="apill" data-addon="frame-inj">+ Frame Inject</button>
+    </div>
+
+    <!-- Sub-selects aparecem quando addon ativo -->
+    <div class="addon-sub" id="ctrl-sub" style="display:none">
+      <!-- [v49] Flags 11.77 LTX2 — substituem THM/TD/CE/HDR/IF (pré-11.77) -->
+      <select id="ctrl-select" class="addon-sub-sel">
+        <option value="EVG" data-ltx2ctrl="1">Canny (EVG)</option>
+        <option value="DVG" data-ltx2ctrl="1">Profundidade (DVG)</option>
+        <option value="PVG" data-ltx2ctrl="1">Movimento Humano (PVG)</option>
+        <option value="OVG" data-ltx2ctrl="1">Pose Align (OVG)</option>
+        <option value="VG" data-ltx2ctrl="1">IC Bruto (VG)</option>
+        <option value="V&G" data-ltx2ctrl="1">HDR (V&G)</option>
+        <option value="V1" data-ltx2ctrl="1">Animar Personagem (V1)</option>
+        <!-- [CTRLMEM] só p/ Story AV: semeia memória de personagem/voz de um vídeo de ref -->
+        <option value="V" data-joyai="1" hidden>Memória de Vídeo (referência multi-frames)</option>
+      </select>
+      <!-- [TRIM-VÍDEO] cortar o vídeo de control por frames — aparece com Ctrl Vídeo ativo -->
+      <input id="keep-frames-guide" class="addon-sub-sel" type="text"
+             placeholder="cortar control: ex. 10:50 ou 1 — vazio = usar todo"
+             title="Quais frames do vídeo de control usar. Vazio = todos · '1' = primeiro · '10:50' = do 10 ao 50 · separe por espaço · -1 = último.">
+      <!-- posições da memória: "2s,8s" ou "ana=2s,leo=8s" (máx 60s) — só visível no Story AV -->
+      <input id="joyai-mem-positions" class="addon-sub-sel" type="text" style="display:none"
+             placeholder="momentos da referência: ex. 2s, 8s ou ana=2s, leo=8s — vazio = automático"
+             title="Em que momentos do vídeo de referência o sistema captura cada personagem/voz (segundos, máx 60s). Nomes opcionais p/ reusar nas cenas. Vazio = escolhe automaticamente trechos com voz.">
+    </div>
+    <div class="addon-sub" id="inj-sub" style="display:none">
+      <select id="inj-select" class="addon-sub-sel">
+        <option value="KI">Key Injection</option>
+        <option value="I">Frame Injection</option>
+      </select>
+      <input id="inj-positions" class="addon-sub-sel" type="text"
+             placeholder="posições (frames): ex. 0 24 48 — vazio = automático"
+             title="Em qual frame cada imagem injetada entra (0-indexado, separado por espaço/vírgula). Vazio = distribui equidistante.">
+    </div>
+
+  </div><!-- /mode-strip -->
+
+  <!-- ── CORPO PRINCIPAL ───────────────────────────────── -->
+  <div class="dock-body">
+
+    <!-- Esquerda: info sistema -->
+    <div class="dock-side">
+      <div class="upgrade-block">
+        <div class="upgrade-head">
+          <span class="upgrade-icon">⚡</span>
+          <span class="upgrade-title">ACS Pro</span>
+        </div>
+        <p class="upgrade-desc">Modelos premium e geração ilimitada.</p>
+        <button class="upgrade-btn" onclick="window.__acsOpenSettings ? window.__acsOpenSettings() : alert('ACS Pro — em breve!')" title="ACS Pro — em breve">Saiba mais</button>
+      </div>
+    </div>
+
+    <!-- Prompt -->
+    <div class="dock-prompt">
+      <div class="prompt-tabs">
+        <button class="ptab active" data-tab="simples">+ MODO SIMPLES</button>
+        <button class="ptab" data-tab="avancado">+ MODO AVANÇADO</button>
+      </div>
+      <textarea id="prompt-input" class="prompt-ta" maxlength="12000"
+                placeholder="Descreva sua cena, plano ou ideia..."></textarea>
+      <div class="prompt-foot">
+        <span class="char-count" id="char-count">0 / 12000</span>
+      </div>
+    </div>
+
+    <!-- Zonas de mídia: referência + áudio (empilhadas) -->
+    <div class="dock-media-col">
+
+      <!-- Referência (Start Frame / Source Video / Ctrl Video) -->
+      <div class="media-zone" id="zone-ref">
+        <span class="zone-label" id="ref-label">IMAGEM / VÍDEO DE<br>REFERÊNCIA</span>
+        <div class="zone-drop" id="drop-start">
+          <input type="file" id="file-start" accept="image/*,video/*" hidden />
+          <div class="zone-thumb" id="ref-thumb"></div>
+          <div class="zone-empty" id="ref-empty">
+            <span class="zone-icon">⧉</span>
+            <span class="zone-txt">Arraste ou clique</span>
+            <span class="zone-sub">PNG · JPG · MP4</span>
+          </div>
+          <button class="zone-clear" id="ref-clear">✕</button>
+        </div>
+      </div>
+
+      <!-- End Frame (addon) -->
+      <div class="media-zone" id="zone-end" style="display:none">
+        <span class="zone-label">END FRAME</span>
+        <div class="zone-drop" id="drop-end">
+          <input type="file" id="file-end" accept="image/*" hidden />
+          <div class="zone-thumb" id="end-thumb"></div>
+          <div class="zone-empty">
+            <span class="zone-icon">⧉</span>
+            <span class="zone-txt">Frame final</span>
+            <span class="zone-sub">PNG · JPG</span>
+          </div>
+          <button class="zone-clear" id="end-clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Inject Zone 2 (T2V + addon-frame-inj only) -->
+      <div class="media-zone media-zone-inj" id="zone-inj2" style="display:none">
+        <span class="zone-label">INJECT 2</span>
+        <div class="zone-drop" id="drop-inj2">
+          <input type="file" id="file-inj2" accept="image/*" hidden />
+          <div class="zone-thumb" id="inj2-thumb"></div>
+          <div class="zone-empty">
+            <span class="zone-icon">⧉</span>
+            <span class="zone-txt">Frame 2</span>
+            <span class="zone-sub">PNG · JPG</span>
+          </div>
+          <button class="zone-clear" id="inj2-clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Inject Zone 3 (T2V + addon-frame-inj only) -->
+      <div class="media-zone media-zone-inj" id="zone-inj3" style="display:none">
+        <span class="zone-label">INJECT 3</span>
+        <div class="zone-drop" id="drop-inj3">
+          <input type="file" id="file-inj3" accept="image/*" hidden />
+          <div class="zone-thumb" id="inj3-thumb"></div>
+          <div class="zone-empty">
+            <span class="zone-icon">⧉</span>
+            <span class="zone-txt">Frame 3</span>
+            <span class="zone-sub">PNG · JPG</span>
+          </div>
+          <button class="zone-clear" id="inj3-clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Ctrl Video — I2V addon (start frame permanece em zone-ref) -->
+      <div class="media-zone" id="zone-ctrl" style="display:none">
+        <span class="zone-label">CTRL VÍDEO</span>
+        <div class="zone-drop" id="drop-ctrl">
+          <input type="file" id="file-ctrl" accept="video/*,image/*" hidden />
+          <div class="zone-thumb" id="ctrl-thumb"></div>
+          <div class="zone-empty">
+            <span class="zone-icon">⧉</span>
+            <span class="zone-txt">Ctrl Video</span>
+            <span class="zone-sub">MP4 · PNG · JPG</span>
+          </div>
+          <button class="zone-clear" id="ctrl-clear">✕</button>
+        </div>
+      </div>
+
+      <!-- Zonas dinâmicas inject (4+) -->
+      <div id="zone-inj-extra"></div>
+
+      <!-- Add Frame — visível apenas com addon frame-inj ativo -->
+      <button id="zone-add-inject">+ Add Frame</button>
+
+      <!-- Áudio (zona visível apenas quando modo áudio requer upload) -->
+      <div class="media-zone media-zone-audio" id="zone-audio" style="display:none">
+        <span class="zone-label" id="audio-zone-label">ÁUDIO / SOUNDTRACK</span>
+        <div class="zone-drop zone-drop-audio" id="drop-audio">
+          <input type="file" id="file-audio" accept="audio/*" hidden />
+          <div class="audio-preview" id="audio-preview" style="display:none">
+            <div class="audio-wave" id="audio-waveform"></div>
+            <span class="audio-fname" id="audio-name"></span>
+          </div>
+          <div class="zone-empty" id="audio-empty">
+            <span class="zone-icon">♪</span>
+            <span class="zone-txt">MP3 · WAV · OGG</span>
+          </div>
+          <button class="zone-clear" id="audio-clear" style="display:none">✕</button>
+        </div>
+      </div>
+
+    </div><!-- /dock-media-col -->
+
+    <!-- Configurações -->
+    <div class="dock-settings">
+
+      <div class="cfg-col cfg-col-preset">
+        <span class="cfg-label">PRESETS</span>
+        <div class="lora-list" id="lora-list"><span class="lora-empty">Carregando...</span></div>
+        <!-- LoRA warning banner — aparece quando LoRA especial está selecionado -->
+        <div class="lora-warning" id="lora-warning" style="display:none">
+          <span class="lora-warning-icon">⚠</span>
+          <span class="lora-warning-text" id="lora-warning-text"></span>
+        </div>
+        <div class="pcol-btn-row">
+          <button class="pcol-btn pcol-btn-refresh" id="preset-refresh-btn" title="Recarregar presets">⟳ Atualizar</button>
+          <button class="pcol-btn pcol-btn-clear"   id="preset-clear-btn"   title="Limpar seleção">✕ Limpar</button>
+        </div>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <div class="cfg-col cfg-col-model">
+        <span class="cfg-label">MODELO</span>
+        <select id="model-select" class="cfg-sel cfg-sel-main"><option>Carregando...</option></select>
+        <select id="mode-select-cfg" class="cfg-sel cfg-sel-sub">
+          <option value="t2v">▷ Texto → Vídeo</option>
+          <option value="i2v">⧉ Img → Vídeo</option>
+          <option value="flf">⧉ End Frame (FLF)</option>
+          <option value="continue">↩ Continue</option>
+          <option value="t2i">◻ Texto → Imagem</option>
+          <option value="animate" class="opt-dedicated" hidden>◆ Animar Personagem</option>
+        </select>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <div class="cfg-col cfg-col-cam">
+        <span class="cfg-label">STEPS</span>
+        <select id="steps-select" class="cfg-sel cfg-sel-main">
+          <option value="" selected>Auto / Recomendado</option>
+          <option value="8">8 steps — Ultrarrápido</option>
+          <option value="20">20 steps — Rápido</option>
+          <option value="30">30 steps — Balanceado</option>
+          <option value="40">40 steps — Qualidade</option>
+          <option value="50">50 steps — Máximo</option>
+        </select>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <div class="cfg-col cfg-col-qual">
+        <span class="cfg-label">QUALIDADE</span>
+        <div class="cfg-qpill-row">
+          <button class="cfg-qpill" data-quality="fast">Fast</button>
+          <button class="cfg-qpill active" data-quality="balanced">Balanced</button>
+          <button class="cfg-qpill" data-quality="pro">Pro</button>
+        </div>
+        <span class="cfg-label cfg-label-sub">MODO ÁUDIO</span>
+        <select id="audio-mode-select" class="cfg-sel cfg-sel-sub"
+                title="Controla como o áudio é gerado ou adicionado ao vídeo">
+          <option value="">♪ AI Soundtrack</option>
+          <option value="A">⟳ Trilha Guia</option>
+          <option value="source">▶ Custom Soundtrack</option>
+        </select>
+        <!-- Info bar: explica o que realmente acontece com o áudio -->
+        <div class="audio-info-bar mode-generated" id="audio-info-bar">
+          <span class="audio-info-icon" id="audio-info-icon">♪</span>
+          <span class="audio-info-text"  id="audio-info-text">O sistema gera o áudio automaticamente durante a criação do vídeo</span>
+        </div>
+        <!-- Sliders de conditioning: visíveis apenas no modo Trilha Guia -->
+        <div class="cfg-audio-scale-row" id="audio-scale-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">FORÇA DO ÁUDIO</span>
+          <div class="adv-slider-row">
+            <input type="range" id="audio-scale" class="adv-slider" min="0" max="1" value="1" step="0.05" />
+            <span class="adv-val" id="audio-scale-val">1.00</span>
+          </div>
+          <span class="cfg-label cfg-label-sub">AUDIO GUIDANCE</span>
+          <div class="adv-slider-row">
+            <input type="range" id="audio-guidance-scale" class="adv-slider" min="1" max="10" value="4" step="0.5" />
+            <span class="adv-val" id="audio-guidance-scale-val">4.0</span>
+          </div>
+          <!-- Lipsync: visível apenas no modo Trilha Guia -->
+          <div class="audio-lipsync-row" id="audio-lipsync-row">
+            <label class="audio-lipsync-label" title="Extrai apenas os vocais antes de condicionar — melhora sincronização labial">
+              <input type="checkbox" id="audio-lipsync" class="audio-lipsync-check" />
+              <span>Ignorar música de fundo</span>
+              <span class="audio-lipsync-badge">lipsync</span>
+            </label>
+          </div>
+          <!-- [CAP-AUDIO] vídeo termina junto com a voz (= "Capped By: Control Length" do motor) -->
+          <div class="audio-lipsync-row" id="cap-audio-row">
+            <label class="audio-lipsync-label" title="O vídeo termina junto com a voz/áudio, sem trecho mudo no fim. Equivale a 'Capped By: Control Length' do motor.">
+              <input type="checkbox" id="cap-audio-toggle" class="audio-lipsync-check" />
+              <span>Cortar no fim do áudio</span>
+              <span class="audio-lipsync-badge">sync</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <div class="cfg-col cfg-col-dur">
+        <span class="cfg-label">DURAÇÃO</span>
+        <div class="dur-display">
+          <span id="dur-val" class="dur-num">5s</span>
+          <span id="dur-frames" class="dur-frames">= 120f</span>
+        </div>
+        <input type="range" id="dur-slider" class="dur-slider" min="1" max="30" value="5" step="1" />
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <div class="cfg-col cfg-col-resfmt">
+        <span class="cfg-label">RESOLUÇÃO / FORMATO</span>
+        <!-- [PHASE2] res-select usa valores WxH diretos — sem acoplamento a quality pills -->
+        <select id="res-select" class="cfg-sel cfg-sel-main">
+          <optgroup label="9:16 — Retrato">
+            <option value="480x832">480p — 480 × 832</option>
+            <option value="720x1280" selected>720p — 720 × 1280 (HD)</option>
+            <option value="1088x1920">1080p — 1088 × 1920</option>
+          </optgroup>
+          <optgroup label="16:9 — Paisagem">
+            <option value="832x480">480p — 832 × 480</option>
+            <option value="1280x720">720p — 1280 × 720 (HD)</option>
+            <option value="1920x1088">1080p — 1920 × 1088</option>
+          </optgroup>
+          <optgroup label="1:1 — Quadrado">
+            <option value="624x624">624 × 624</option>
+            <option value="832x832">832 × 832</option>
+            <option value="1024x1024">1024 × 1024</option>
+          </optgroup>
+          <optgroup label="4:3 — Clássico">
+            <option value="832x624">832 × 624</option>
+            <option value="1024x768">1024 × 768</option>
+            <option value="1280x960">1280 × 960</option>
+          </optgroup>
+          <optgroup label="21:9 — Cinemascope">
+            <option value="832x352">832 × 352</option>
+            <option value="1280x544">1280 × 544</option>
+            <option value="1920x816">1920 × 816</option>
+          </optgroup>
+        </select>
+        <div class="cfg-fmt-row">
+          <button class="cfg-fmt-btn" data-ratio="16:9"><span class="cfg-fmt-icon cfi-169"></span>16:9</button>
+          <button class="cfg-fmt-btn active" data-ratio="9:16"><span class="cfg-fmt-icon cfi-916"></span>9:16</button>
+          <button class="cfg-fmt-btn" data-ratio="1:1"><span class="cfg-fmt-icon cfi-11"></span>1:1</button>
+          <button class="cfg-fmt-btn" data-ratio="4:3"><span class="cfg-fmt-icon cfi-43"></span>4:3</button>
+          <button class="cfg-fmt-btn" data-ratio="21:9"><span class="cfg-fmt-icon cfi-219"></span>21:9</button>
+        </div>
+        <div class="cfg-seed-row">
+          <span class="cfg-label" style="margin:0">SEED</span>
+          <input type="number" id="seed-input" class="cfg-seed-num" value="-1" />
+          <button class="cfg-seed-dice" id="seed-rand" title="Aleatório">🎲</button>
+        </div>
+      </div>
+
+      <!-- Source Strength — I2V only, oculto nos outros modos via CSS -->
+      <div class="cfg-sep cfg-sep-i2v-str"></div>
+      <div class="cfg-col cfg-col-i2v-strength"
+           title="Controla quanto o vídeo segue a imagem de referência.&#10;1.0 = cola na ref (rígido) · 0.85 = padrão · 0.5 = mais criativo">
+        <span class="cfg-label">SOURCE<br>STRENGTH</span>
+        <div class="dur-display">
+          <span id="i2v-ss-val" class="dur-num">0.85</span>
+        </div>
+        <input type="range" id="i2v-source-strength" class="dur-slider"
+               min="0" max="1" value="0.85" step="0.05" />
+      </div>
+
+    </div><!-- /dock-settings -->
+
+    <!-- Gerar -->
+    <div class="dock-gen">
+      <button class="btn-gen" id="btn-generate">
+        <span class="gen-plus">+</span>
+        <span class="gen-lbl">GERAR</span>
+      </button>
+      <button class="btn-abort" id="btn-abort" title="Cancelar">✕ Cancelar</button>
+      <!-- ── Progress UI Inline ─────────────────────────────
+           Sempre presente no DOM. Visibilidade controlada por data-state.
+           Estados: idle (invisível) | generating | completed | failed
+           Reseta APENAS no início de nova geração — sem timeout.
+      ─────────────────────────────────────────────────────── -->
+      <div class="progress-ui" id="progress-ui" data-state="idle">
+        <div class="pui-header">
+          <span class="pui-icon" id="pui-icon">●</span>
+          <span class="pui-step" id="pui-step">Carregando modelo</span>
+          <span class="pui-pct"  id="pui-pct">0%</span>
+          <span class="pui-time" id="pui-time"></span>
+        </div>
+        <div class="pui-sub" id="pui-sub"></div>
+        <div class="pui-track">
+          <div class="pui-bar" id="pui-bar" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /dock-body -->
+</div><!-- /gen-dock -->
+
+<!-- ADVANCED DRAWER -->
+<div id="advanced-drawer" class="advanced-drawer">
+  <div class="adv-header">
+    <span class="adv-title">⚙ MODO AVANÇADO — Parâmetros de Geração</span>
+    <button class="adv-close" id="adv-close">✕</button>
+  </div>
+  <div class="adv-body">
+
+    <div class="adv-col adv-col-neg">
+      <span class="adv-label">PROMPT NEGATIVO</span>
+      <textarea id="negative-input" class="adv-neg-ta"
+                placeholder="Elementos a evitar: blur, noise, distortion..."></textarea>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <div class="adv-col">
+      <span class="adv-label">GUIDANCE SCALE</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-guidance" class="adv-slider" min="1" max="15" value="5" step="0.5" />
+        <span class="adv-val" id="adv-guidance-val">5.0</span>
+      </div>
+      <span class="adv-label" style="margin-top:6px">FILM GRAIN — INTENSITY</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-grain-int" class="adv-slider" min="0" max="1" value="0" step="0.05" />
+        <span class="adv-val" id="adv-grain-int-val">0.00</span>
+      </div>
+      <span class="adv-label" style="margin-top:6px">FILM GRAIN — SATURATION</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-grain-sat" class="adv-slider" min="0" max="1" value="0.5" step="0.05" />
+        <span class="adv-val" id="adv-grain-sat-val">0.50</span>
+      </div>
+    </div>
+
+    <!-- sliding_window: oculto — backend calcula automaticamente por modelo (ltx2:481/17, wan:81/5).
+         Expor estes campos criaria UI enganosa (defaults 81/5 errados para LTX2).
+    <div class="adv-sep"></div>
+    <div class="adv-col adv-col-window" style="display:none">
+      <div class="adv-field">
+        <span class="adv-label">SLIDING WINDOW SIZE</span>
+        <input type="number" id="adv-sw-size" class="adv-num-input" value="81" min="1" />
+      </div>
+      <div class="adv-field">
+        <span class="adv-label">SLIDING WINDOW OVERLAP</span>
+        <input type="number" id="adv-sw-overlap" class="adv-num-input" value="5" min="0" />
+      </div>
+    </div>
+    -->
+
+    <!-- GUIDANCE PHASES — visível apenas para família ltx2 -->
+    <div class="adv-sep adv-sep-phases" id="adv-sep-phases" style="display:none"></div>
+
+    <div class="adv-col adv-col-phases" id="adv-col-phases" style="display:none">
+      <span class="adv-label">GUIDANCE PHASES</span>
+      <div class="adv-phases-row">
+        <button class="adv-phase-pill active" data-phase="">Auto</button>
+        <button class="adv-phase-pill" data-phase="1">1 Phase</button>
+        <button class="adv-phase-pill" data-phase="2">2 Phases</button>
+      </div>
+      <span class="adv-hint" id="adv-phases-hint">Pipeline automático por modelo</span>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <!-- ADVANCED 11.77 — reorganizado em 2 grupos: TEMPORAL + QUALIDADE -->
+    <div class="adv-col adv-col-1177-temporal">
+      <span class="adv-group-title">⏱ TEMPORAL</span>
+
+      <span class="adv-label">RIFLEx — VÍDEOS LONGOS</span>
+      <select id="adv-riflex" class="adv-select">
+        <option value="0">Off — padrão</option>
+        <option value="1">Ativado</option>
+        <option value="2">Estendido</option>
+      </select>
+      <span class="adv-hint">Coerência temporal em vídeos longos (FreqRoPE)</span>
+
+      <span class="adv-label" style="margin-top:10px">UPSAMPLING DE FPS</span>
+      <select id="adv-temporal" class="adv-select">
+        <option value="">Off — padrão</option>
+        <option value="rife2">RIFE ×2 — dobrar FPS</option>
+        <option value="rife4">RIFE ×4 — quadruplicar FPS</option>
+      </select>
+      <span class="adv-hint">Interpolação pós-geração via RIFE</span>
+
+      <span class="adv-label" style="margin-top:10px">FPS DE SAÍDA</span>
+      <select id="adv-fps" class="adv-select">
+        <option value="">Auto — padrão do modelo</option>
+        <option value="8">8 fps — slow motion / cinematic</option>
+        <option value="16">16 fps — padrão</option>
+        <option value="24">24 fps — cinema</option>
+      </select>
+      <span class="adv-hint">Força FPS de saída (ignora padrão do modelo)</span>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <div class="adv-col adv-col-1177-quality">
+      <span class="adv-group-title">✦ QUALIDADE</span>
+
+      <span class="adv-label">SELF REFINER</span>
+      <select id="adv-self-refiner" class="adv-select">
+        <option value="0">Off — padrão</option>
+        <option value="1">Básico</option>
+        <option value="2">Estendido</option>
+      </select>
+      <span class="adv-hint">Refinamento iterativo do transformer (11.77+)</span>
+
+      <span class="adv-label" style="margin-top:10px">SPATIAL UPSAMPLING</span>
+      <select id="adv-spatial" class="adv-select">
+        <option value="">Off — padrão</option>
+        <option value="lanczos">Lanczos ×2</option>
+        <option value="flashvsr2">FlashVSR ×2 (nítido)</option>
+        <option value="flashvsr2pass2">FlashVSR Two Pass ×2 (rosto)</option>
+      </select>
+      <span class="adv-hint">Upscaling espacial pós-geração (ckpt 950 MB)</span>
+
+      <span class="adv-label" style="margin-top:10px">PROMPT ENHANCER</span>
+      <button class="adv-toggle" id="adv-enhancer" data-mode="">OFF</button>
+      <span class="adv-hint">OFF → Enhance (Gemma-3) → Relay (segmentos temporais [0%:25%]…)</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ZOOM WIDGET — fixed floating, igual Imagem/Áudio -->
+<div id="zoom-widget">
+  <span class="zoom-label">Zoom da Interface</span>
+  <div class="zoom-control">
+    <button class="zoom-btn" id="zoom-out" title="Reduzir zoom">−</button>
+    <span class="zoom-val" id="zoom-val">100%</span>
+    <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+  </div>
+</div>
+
+<script src="../notif.js?v=1"></script>
+<script src="../tooltip.js?v=1"></script>
+<script src="./video.js?v=78" defer></script>
+<script src="../media-browser.js?v=8"></script>
+<script>
+  /* Status-bar "ACS Studio conectado" — health check no boot (compartilhado entre tabs) */
+  (function(){
+    const sb = document.getElementById("status-bar");
+    if (!sb) return;
+    const show = (msg, type) => { sb.textContent = msg; sb.className = `status-bar visible ${type||""}`; };
+    const hide = () => sb.classList.remove("visible");
+    fetch("/health").then(r => r.json()).then(d => {
+      if (d && d.status === "ok") { show("ACS Studio conectado ✦", "done"); setTimeout(hide, 2500); }
+      else { show("Conectando ao motor...", "loading"); setTimeout(hide, 3500); }
+    }).catch(() => { show("Sem conexão com o motor", "error"); setTimeout(hide, 4000); });
+  })();
+
+  /* [v02] HUD Zoom — persiste em localStorage; widget flutuante counter-scaled (dedup) */
+  (function(){
+    const LEVELS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.25, 1.5];
+    const KEY = "acs_zoom_level";
+    let idx = LEVELS.indexOf(parseFloat(localStorage.getItem(KEY)));
+    if (idx < 0) idx = 3; // default: 100%
+
+    const widget = document.getElementById("zoom-widget");
+    const valEl = document.getElementById("zoom-val");
+    const outBtn = document.getElementById("zoom-out");
+    const inBtn  = document.getElementById("zoom-in");
+
+    function applyZoom() {
+      const z = LEVELS[idx];
+      document.body.style.zoom = z;
+      if (widget) widget.style.transform = `scale(${(1/z).toFixed(4)})`;
+      if (valEl) valEl.textContent = Math.round(z * 100) + "%";
+      if (outBtn) outBtn.disabled = (idx === 0);
+      if (inBtn)  inBtn.disabled  = (idx === LEVELS.length - 1);
+      localStorage.setItem(KEY, z);
+    }
+
+    if (outBtn) outBtn.addEventListener("click", () => { if (idx > 0) { idx--; applyZoom(); } });
+    if (inBtn)  inBtn.addEventListener("click",  () => { if (idx < LEVELS.length - 1) { idx++; applyZoom(); } });
+
+    applyZoom(); // aplica zoom salvo ao carregar
+  })();
+</script>
+  <script src="/studio/license-gate.js?v=1" defer></script>
+</body>
+</html>

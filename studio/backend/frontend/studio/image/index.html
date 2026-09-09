@@ -1,0 +1,259 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACS Studio — Image</title>
+  <!-- Preload: busca recursos críticos em paralelo durante parse do HTML -->
+  <link rel="preload" href="../studio.css?v=31" as="style" />
+  <link rel="preload" href="../image.js?v=48" as="script" crossorigin />
+  <link rel="preload" href="/studio/fonts/inter-latin.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <link rel="stylesheet" href="../media-browser.css?v=3" />
+  <script src="../gallery-delete.js?v=1" defer></script>
+</head>
+<body>
+<div class="studio">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Criar</div>
+      <a class="nav-item active" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">Nano</span></a>
+      <a class="nav-item" href="/studio/video"><span class="nav-ic">▶</span>Video<span class="nav-badge">Pro</span></a>
+      <a class="nav-item" href="/studio/audio"><span class="nav-ic">♪</span>Audio<span class="nav-badge">Studio</span></a>
+      <a class="nav-item" href="/studio/motion"><span class="nav-ic">⟳</span>Motion<span class="nav-badge">Control</span></a>
+      <div class="nav-group-label" style="margin-top:8px">Biblioteca</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">Sistema</div>
+      <a class="nav-item" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot"><div class="sys-status"><span class="sys-dot"></span>Sistema Online</div></div>
+  </aside>
+  <div class="main">
+    <header class="topbar">
+      <span class="topbar-brand-wrap"><span class="topbar-brand">AI Cinematic Studio</span><span class="topbar-unlimited">UNLIMITED</span></span>
+      <div class="topbar-right">
+        <button class="topbar-pill topbar-pill-license">◉ Licença Ativa</button>
+        <button class="topbar-pill">AC ▾</button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="ctrl-panel">
+        <div class="ctrl-group">
+          <label class="ctrl-label">Prompt</label>
+          <div class="prompt-wrap">
+            <textarea id="prompt" class="prompt-ta" placeholder="Descreva a imagem que você quer criar..." maxlength="12000"></textarea>
+            <span class="prompt-foot" id="char-count">0 / 12000</span>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Modelo</label>
+          <select class="ctrl-select" id="model-select">
+            <option value="flux2">Cinematic Image</option>
+            <option value="z_image">Creative Image</option>
+            <option value="ideogram4">Typography Image</option>
+            <option value="krea2">Krea 2 Estético</option>
+          </select>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Preset</label>
+          <div class="preset-row">
+            <select class="ctrl-select preset-select" id="preset-select">
+              <option value="">— Selecionar preset —</option>
+            </select>
+            <button class="preset-apply-btn" id="preset-apply-btn" title="Aplicar preset">▶ Aplicar</button>
+            <button class="preset-clear-btn" id="preset-clear-btn" title="Limpar preset">✕</button>
+          </div>
+          <div class="preset-intensity-row">
+            <span class="preset-intensity-label">Intensidade</span>
+            <input type="range" class="ctrl-slider preset-intensity-slider" id="preset-intensity" min="0" max="2" step="0.05" value="1" />
+            <span class="preset-intensity-val" id="preset-intensity-val">1.00</span>
+          </div>
+          <button class="preset-save-btn" id="preset-save-btn">＋ Salvar configuração atual</button>
+        </div>
+        <div class="sep"></div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Performance</label>
+          <div class="toggle-row">
+            <button class="toggle-btn perf-btn active" data-perf="fast">Fast</button>
+            <button class="toggle-btn perf-btn" data-perf="balanced">Balanced</button>
+            <button class="toggle-btn perf-btn" data-perf="pro">Pro</button>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Formato</label>
+          <div class="fmt-row">
+            <button class="fmt-btn active" data-fmt="1:1"><span class="fmt-icon fi-11"></span>1:1</button>
+            <button class="fmt-btn" data-fmt="16:9"><span class="fmt-icon fi-169"></span>16:9</button>
+            <button class="fmt-btn" data-fmt="9:16"><span class="fmt-icon fi-916"></span>9:16</button>
+            <button class="fmt-btn" data-fmt="4:3"><span class="fmt-icon fi-43"></span>4:3</button>
+            <button class="fmt-btn" data-fmt="21:9"><span class="fmt-icon fi-219"></span>21:9</button>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Resolução</label>
+          <select class="ctrl-select" id="res-select"></select>
+        </div>
+        <div class="ctrl-group" id="lora-group" style="display:none">
+          <label class="ctrl-label">Estilos <span class="lora-refresh" id="lora-refresh" title="Recarregar lista">⟳</span></label>
+          <div class="lora-list" id="lora-list"><span class="lora-empty">Carregando...</span></div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Inject Reference Images</label>
+          <select class="ctrl-select" id="inject-images">
+            <option value="">None</option>
+            <option value="KI">Conditional — Main Subject / Landscape</option>
+            <option value="I">Conditional — People / Objects only</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="ref-upload-group" style="display:none">
+          <label class="ctrl-label">Imagem de Referência</label>
+          <div class="ref-dropzone" id="ref-dropzone">
+            <input type="file" id="ref-file-input" accept="image/*" hidden />
+            <div class="ref-dz-content" id="ref-dz-content">
+              <span class="ref-dz-icon">⧉</span>
+              <span class="ref-dz-label">Clique ou arraste a imagem</span>
+              <span class="ref-dz-sub">PNG, JPG, WEBP</span>
+            </div>
+          </div>
+        </div>
+        <div class="ctrl-group">
+          <label class="ctrl-label">Control Image Process</label>
+          <select class="ctrl-select" id="control-mode">
+            <option value="">No Control Image</option>
+            <option value="PV">Transfer Human Pose</option>
+            <option value="MV">Perform Inpainting</option>
+          </select>
+        </div>
+        <div class="ctrl-group" id="ctrl-upload-group" style="display:none">
+          <label class="ctrl-label" id="ctrl-upload-label">Imagem de Controle</label>
+          <div class="ref-dropzone" id="ctrl-dropzone">
+            <input type="file" id="ctrl-file-input" accept="image/*" hidden />
+            <div class="ref-dz-content" id="ctrl-dz-content">
+              <span class="ref-dz-icon">⧉</span>
+              <span class="ref-dz-label">Clique ou arraste a imagem</span>
+              <span class="ref-dz-sub">PNG, JPG, WEBP</span>
+            </div>
+          </div>
+        </div>
+        <div class="sep"></div>
+        <div class="ctrl-group">
+          <div class="adv-toggle" id="adv-toggle"><span class="adv-arrow" id="adv-arrow">▶</span>Advanced</div>
+          <div class="adv-body" id="adv-body">
+            <label class="ctrl-label">Negative Prompt</label>
+            <textarea id="negative" class="ctrl-input" style="min-height:60px;resize:none;" placeholder="O que evitar na imagem..."></textarea>
+            <div class="adv-row-label"><label class="ctrl-label">Steps</label><span class="adv-val" id="steps-val">4</span></div>
+            <input id="steps" class="ctrl-slider" type="range" value="4" min="1" max="50" step="1" />
+            <div class="adv-row-label" style="margin-top:10px"><label class="ctrl-label">Seed</label><span class="adv-val" id="seed-display">Aleatório</span></div>
+            <div class="seed-wrap">
+              <input id="seed" class="ctrl-slider seed-slider" type="range" value="0" min="0" max="9999999" step="1" />
+              <button class="seed-rand-btn" id="seed-rand-btn" title="Seed aleatória">🎲</button>
+            </div>
+          </div>
+        </div>
+      </aside>
+      <div class="preview-panel">
+        <div class="preview-main">
+          <div class="hero-glow hero-glow-purple" aria-hidden="true"></div>
+          <div class="hero-glow hero-glow-amber"  aria-hidden="true"></div>
+          <div class="preview-empty" id="preview-empty" style="display:flex">
+            <p class="preview-empty-eyebrow">AI IMAGE STUDIO</p>
+            <h2 class="preview-empty-title">Crie imagens<br>extraordinárias</h2>
+            <p class="preview-empty-desc">Descreva qualquer cena, personagem<br>ou conceito e gere em segundos.</p>
+            <div class="preview-empty-hint">Escreva um prompt e clique <strong>GERAR</strong></div>
+          </div>
+          <div class="preview-loading" id="preview-loading" style="display:none">
+            <div class="preview-spinner"></div>
+            <div class="hud-main-status" id="hud-main-status">Inicializando...</div>
+            <div class="hud-bar-row">
+              <div class="preview-progress-bar-wrap"><div class="preview-progress-bar" id="progress-bar"></div></div>
+              <span class="hud-pct" id="hud-pct">0%</span>
+            </div>
+            <div class="preview-progress-label" id="progress-label"></div>
+            <div class="preview-dl-sub" id="preview-dl-sub"></div>
+            <div class="hud-dl-calm" id="hud-dl-calm" style="display:none">Seu computador não está travado.</div>
+          </div>
+          <div class="preview-img-wrap" id="preview-img-wrap" style="display:none">
+            <img class="preview-img" id="preview-img" src="" alt="" />
+            <div class="preview-img-actions">
+              <button class="preview-action-btn" id="btn-download">↓ Download</button>
+              <button class="preview-action-btn" id="btn-open">↗ Abrir</button>
+            </div>
+          </div>
+          <div class="status-bar" id="status-bar"></div>
+        </div>
+        <div class="bottom-dock">
+          <div class="queue-panel" id="queue-panel" style="display:none">
+            <div class="queue-panel-head"><span>Fila de Geração</span><button class="queue-clear" id="queue-clear">Limpar</button></div>
+            <div class="queue-list" id="queue-list"><span class="queue-empty">Nenhum job na fila.</span></div>
+          </div>
+          <div class="gen-info-bar" id="gen-info-bar" style="display:none">
+            <span class="gen-info-dot"></span>
+            <span class="gen-info-status" id="gen-info-status">Gerando...</span>
+            <span class="gen-info-timer" id="gen-info-timer">00:00</span>
+          </div>
+          <div class="action-bar">
+            <button class="btn-queue" id="btn-queue" title="Ver fila">
+              <span class="btn-queue-icon">☰</span><span class="btn-queue-label">FILA</span>
+              <span class="btn-queue-badge" id="queue-badge" style="display:none">0</span>
+            </button>
+            <button class="btn-generate" id="btn-generate">
+              <span class="btn-star" id="btn-star">✦</span><span id="btn-label">GERAR</span>
+            </button>
+            <button class="btn-abort" id="btn-abort" title="Abortar" disabled>ABORTAR</button>
+            <button class="btn-enqueue" id="btn-enqueue" title="Adicionar à fila"><span>+</span><span>FILA</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- GALERIA LATERAL DIREITA -->
+      <aside class="img-gallery-panel" id="img-gallery-panel">
+        <div class="img-gallery-head">
+          <span class="img-gallery-title">RECENTES</span>
+          <a href="/studio/gallery" class="img-gallery-more">Ver todas →</a>
+        </div>
+        <div class="img-gallery-grid" id="gallery-thumbs"></div>
+      </aside>
+    </div>
+  </div>
+</div>
+<!-- ZOOM WIDGET — fixed floating, fora do .studio para não ser afetado pelo layout -->
+<div id="zoom-widget">
+  <span class="zoom-label">Zoom da Interface</span>
+  <div class="zoom-control">
+    <button class="zoom-btn" id="zoom-out" title="Reduzir zoom">−</button>
+    <span class="zoom-val" id="zoom-val">100%</span>
+    <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+  </div>
+</div>
+<script src="../notif.js?v=1"></script>
+<script type="module" src="../image.js?v=48"></script>
+<script src="../media-browser.js?v=8"></script>
+<script>
+  /* [v02] HUD Zoom — fixed widget, counter-scaled para nunca desaparecer no zoom in */
+  (function(){
+    const LEVELS=[0.75,0.85,0.9,1.0,1.1,1.25,1.5];const KEY="acs_zoom_level";
+    let idx=LEVELS.indexOf(parseFloat(localStorage.getItem(KEY)));if(idx<0)idx=3;
+    const widget=document.getElementById("zoom-widget");
+    const valEl=document.getElementById("zoom-val");
+    const outBtn=document.getElementById("zoom-out");
+    const inBtn=document.getElementById("zoom-in");
+    function apply(){
+      const z=LEVELS[idx];
+      document.body.style.zoom=z;
+      if(widget)widget.style.transform=`scale(${(1/z).toFixed(4)})`;
+      if(valEl)valEl.textContent=Math.round(z*100)+"%";
+      if(outBtn)outBtn.disabled=(idx===0);
+      if(inBtn)inBtn.disabled=(idx===LEVELS.length-1);
+      localStorage.setItem(KEY,z);
+    }
+    if(outBtn)outBtn.addEventListener("click",()=>{if(idx>0){idx--;apply();}});
+    if(inBtn)inBtn.addEventListener("click",()=>{if(idx<LEVELS.length-1){idx++;apply();}});
+    apply();
+  })();
+</script>
+  <script src="/studio/license-gate.js?v=1" defer></script>
+</body>
+</html>

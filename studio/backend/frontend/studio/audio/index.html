@@ -1,0 +1,503 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACS Studio — Audio</title>
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <link rel="stylesheet" href="../media-browser.css?v=3" />
+  <script src="../gallery-delete.js?v=1" defer></script>
+  <link rel="stylesheet" href="./audio.css?v=4" />
+  <link rel="stylesheet" href="../tooltip.css?v=1" />
+</head>
+<body>
+<div class="studio">
+
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Criar</div>
+      <a class="nav-item" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">Nano</span></a>
+      <a class="nav-item" href="/studio/video"><span class="nav-ic">▶</span>Video<span class="nav-badge">Pro</span></a>
+      <a class="nav-item active" href="/studio/audio"><span class="nav-ic">♪</span>Audio<span class="nav-badge">Studio</span></a>
+      <a class="nav-item" href="/studio/motion"><span class="nav-ic">⟳</span>Motion<span class="nav-badge">Control</span></a>
+      <div class="nav-group-label" style="margin-top:8px">Biblioteca</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">Sistema</div>
+      <a class="nav-item" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot">
+      <div class="sys-status"><span class="sys-dot"></span>Sistema Online</div>
+    </div>
+  </aside>
+
+  <div class="audio-canvas">
+    <div class="status-bar" id="status-bar"></div>
+    <div class="hero-glow hero-glow-green" aria-hidden="true"></div>
+    <div class="hero-glow hero-glow-teal"  aria-hidden="true"></div>
+
+    <section class="hero" id="hero-section">
+      <p class="hero-eyebrow">AI VOICE STUDIO</p>
+      <h1 class="hero-title">O que você quer<br>criar hoje?</h1>
+      <p class="hero-desc">Músicas, falas e clonagem de voz com inteligência artificial local,<br>ilimitada e sem mensalidade.</p>
+    </section>
+
+    <!-- Central HUD — shown during generation/download (Phase 3 + HUD redesign) -->
+    <div class="canvas-hud-loading" id="audio-loading">
+      <div class="preview-spinner"></div>
+      <div class="hud-main-status" id="aud-hud-status">Inicializando...</div>
+      <div class="hud-bar-row">
+        <div class="preview-progress-bar-wrap"><div class="preview-progress-bar" id="aud-progress-bar"></div></div>
+        <span class="hud-pct" id="aud-hud-pct">0%</span>
+      </div>
+      <div class="preview-progress-label" id="aud-progress-label"></div>
+      <div class="preview-dl-sub" id="aud-dl-sub"></div>
+      <div class="hud-dl-calm" id="aud-dl-calm" style="display:none">Seu computador não está travado.</div>
+    </div>
+
+    <!-- PLAYER DE ÁUDIO -->
+    <div class="audio-player-wrap" id="audio-player-wrap">
+      <div class="ap-shell">
+        <div class="ap-waveform-area">
+          <div class="ap-waveform" id="ap-waveform"></div>
+          <audio id="audio-output" preload="auto"></audio>
+        </div>
+        <div class="ap-controls">
+          <button class="ap-btn ap-play" id="ap-play-btn" title="Play / Pause">&#9654;</button>
+          <div class="ap-progress-wrap">
+            <div class="ap-progress-bar" id="ap-progress-bar">
+              <div class="ap-progress-fill" id="ap-progress-fill"></div>
+            </div>
+            <div class="ap-time-row">
+              <span class="ap-time" id="ap-time-cur">0:00</span>
+              <span class="ap-time" id="ap-time-dur">0:00</span>
+            </div>
+          </div>
+        </div>
+        <div class="ap-meta-bar">
+          <div class="ap-meta-info">
+            <span id="ap-filename" class="ap-filename"></span>
+            <span id="ap-size" class="ap-size"></span>
+          </div>
+          <div class="ap-meta-btns">
+            <button id="btn-download" class="vp-btn">&#11015; Download</button>
+            <a href="/studio/gallery" class="vp-btn">&#9672; Galeria</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GALERIA LATERAL DIREITA -->
+  <aside class="gallery-panel" id="gallery-panel">
+    <div class="gallery-panel-head">
+      <span class="gallery-panel-title">RECENTES</span>
+      <a href="/studio/gallery" class="gallery-ver-todas">Ver todas &rarr;</a>
+    </div>
+    <div class="gallery-panel-grid" id="recent-grid"></div>
+  </aside>
+
+  <!-- Hot zone invisível — aciona auto-hide da galeria (igual video/motion) -->
+  <div id="gallery-hotzone" class="gallery-hotzone"></div>
+
+</div>
+
+<!-- TOAST -->
+<div class="gen-toast" id="gen-toast"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     PAINEL DE GERAÇÃO
+═══════════════════════════════════════════════════ -->
+<div class="gen-dock" id="gen-dock">
+
+  <!-- ── FAIXA DE MODELOS (topo) ─────────────────────── -->
+  <div class="mode-strip">
+    <div class="mode-group" id="model-pills-group">
+      <button class="mpill" data-model="Music Studio"
+        data-acs-tip-title="Music Studio"
+        data-acs-tip-body="Stable Audio 3 — gera música e efeitos sonoros a partir de texto. Ideal para trilhas originais livres de copyright. Descreva estilo, gênero, BPM e instrumentos."
+        data-acs-tip-tag="Stable Audio 3 · Música">Music Studio</button>
+      <button class="mpill active" data-model="ace_step_v1"
+        data-acs-tip-title="ACE-Step v1.0"
+        data-acs-tip-body="Geração de música e narração com condicionamento por letra + tags de estilo. Modelo fundacional 3.5B. Boa relação qualidade/velocidade para músicas instrumentais e com voz."
+        data-acs-tip-tag="3.5B · Música + Voz">ACE-Step v1.0</button>
+      <button class="mpill" data-model="ace_step_v1_5"
+        data-acs-tip-title="ACE-Step v1.5 Turbo"
+        data-acs-tip-body="Versão destilada de 2B do ACE-Step. Geração ultrarrápida de músicas com BPM, Key Scale e Time Signature controláveis. Ideal para prototipagem musical."
+        data-acs-tip-tag="2B · Turbo · Música">ACE-Step v1.5 Turbo</button>
+      <button class="mpill" data-model="ace_step_v1_5_xl"
+        data-acs-tip-title="ACE-Step v1.5 XL"
+        data-acs-tip-body="Variante XL de 4B do ACE-Step 1.5. Maior capacidade composicional. Suporta Cover Mode com condicionamento de áudio existente para remixes e adaptações."
+        data-acs-tip-tag="4B · XL · Cover Mode">ACE-Step v1.5 XL</button>
+      <button class="mpill" data-model="chatterbox"
+        data-acs-tip-title="Chatterbox"
+        data-acs-tip-body="TTS emocional multilingual com clonagem de voz zero-shot. Controles Exaggeration e Pace para ajuste fino da expressividade. Alta naturalidade em Português e Inglês."
+        data-acs-tip-tag="Multilingual · Clonagem Zero-shot">Chatterbox</button>
+      <button class="mpill" data-model="heartmula_oss_3b"
+        data-acs-tip-title="HeartMuLa 3B"
+        data-acs-tip-body="Modelo de música 3B com alta fidelidade rítmica, para composições longas. Gera a partir de LETRA + TAGS (palavras-chave). Não usa áudio de referência — para isso use o ACE-Step (Cover/Timbre)."
+        data-acs-tip-tag="3B · Música · Letra+Tags">HeartMuLa 3B</button>
+      <button class="mpill" data-model="index_tts2"
+        data-acs-tip-title="Index TTS 2"
+        data-acs-tip-body="TTS de alta qualidade com clonagem de voz a partir de poucos segundos de referência. Auto Split para narração de textos longos. Voz natural e consistente."
+        data-acs-tip-tag="TTS · Clonagem · Auto Split">Index TTS 2</button>
+      <button class="mpill" data-model="kugelaudio_0_open"
+        data-acs-tip-title="KugelAudio 7B"
+        data-acs-tip-body="Modelo de áudio 7B de propósito geral: música, efeitos e narração. Suporta Auto Split para longos roteiros. Amplo vocabulário sonoro com prompt de linguagem natural."
+        data-acs-tip-tag="7B · Geral · Efeitos + Música">KugelAudio 7B</button>
+      <button class="mpill" data-model="qwen3_tts_base"
+        data-acs-tip-title="Qwen3 TTS"
+        data-acs-tip-body="TTS baseado no Qwen3 1.7B com cobertura de mais de 50 idiomas. Compacto e rápido. Suporta Auto Split e controle de idioma por ISO. Ideal para localização."
+        data-acs-tip-tag="1.7B · 50+ idiomas">Qwen3 TTS</button>
+    </div>
+  </div>
+
+  <!-- ── CORPO PRINCIPAL ───────────────────────────────── -->
+  <div class="dock-body">
+
+    <!-- Esquerda: info sistema -->
+    <div class="dock-side">
+      <div class="upgrade-block">
+        <div class="upgrade-head">
+          <span class="upgrade-icon">&#9889;</span>
+          <span class="upgrade-title">ACS Pro</span>
+        </div>
+        <p class="upgrade-desc">Modelos premium e geração ilimitada.</p>
+        <button class="upgrade-btn">Saiba mais</button>
+      </div>
+    </div>
+
+    <!-- Prompt / Lyrics -->
+    <div class="dock-prompt">
+      <div class="prompt-tabs">
+        <button class="ptab active" id="ptab-prompt">&#9836; LYRICS / PROMPT</button>
+        <button class="ptab" id="ptab-alt" style="display:none">&#9839; TAGS / CAPTION</button>
+      </div>
+      <textarea id="prompt-input" class="prompt-ta"
+                placeholder="Escreva a letra da música, o texto a ser narrado ou descreva o áudio..."></textarea>
+      <!-- Alt Prompt: Tags / Caption / Emoção / Voice Instruction -->
+      <div id="alt-prompt-section" style="display:none">
+        <div class="alt-prompt-sep"></div>
+        <span class="alt-prompt-label" id="alt-prompt-label">TAGS / CAPTION</span>
+        <textarea id="alt-prompt-input" class="alt-prompt-ta"
+                  placeholder="disco, happy, piano..."></textarea>
+      </div>
+      <div class="prompt-foot">
+        <span class="char-count" id="char-count">0 / 12000</span>
+      </div>
+    </div>
+
+    <!-- Zona de referência de voz (audio_guide) -->
+    <div class="dock-media-col" id="dock-media-col">
+
+      <!-- Voz de Referência 1 -->
+      <div class="media-zone" id="zone-guide1">
+        <span class="zone-label" id="guide1-label">VOZ DE REFERÊNCIA</span>
+        <div class="zone-drop zone-drop-audio" id="drop-guide1">
+          <input type="file" id="file-guide1" accept="audio/*" hidden />
+          <div class="audio-preview" id="guide1-preview" style="display:none">
+            <div class="audio-wave" id="guide1-waveform"></div>
+            <span class="audio-fname" id="guide1-name"></span>
+          </div>
+          <div class="zone-empty" id="guide1-empty">
+            <span class="zone-icon">&#9836;</span>
+            <span class="zone-txt">Arraste ou clique</span>
+            <span class="zone-sub">MP3 &middot; WAV &middot; OGG &middot; FLAC</span>
+          </div>
+          <button class="zone-clear" id="guide1-clear" style="display:none">&#10005;</button>
+        </div>
+      </div>
+
+      <!-- Voz de Referência 2 (opcional, alguns modelos) -->
+      <div class="media-zone" id="zone-guide2" style="display:none">
+        <span class="zone-label" id="guide2-label">REFERÊNCIA 2 / EMOÇÃO</span>
+        <div class="zone-drop zone-drop-audio" id="drop-guide2">
+          <input type="file" id="file-guide2" accept="audio/*" hidden />
+          <div class="audio-preview" id="guide2-preview" style="display:none">
+            <div class="audio-wave" id="guide2-waveform"></div>
+            <span class="audio-fname" id="guide2-name"></span>
+          </div>
+          <div class="zone-empty" id="guide2-empty">
+            <span class="zone-icon">&#9836;</span>
+            <span class="zone-txt">Referência 2 (opcional)</span>
+            <span class="zone-sub">MP3 &middot; WAV &middot; OGG</span>
+          </div>
+          <button class="zone-clear" id="guide2-clear" style="display:none">&#10005;</button>
+        </div>
+      </div>
+
+    </div><!-- /dock-media-col -->
+
+    <!-- Configurações -->
+    <div class="dock-settings">
+
+      <!-- Modelo + Audio Task -->
+      <div class="cfg-col cfg-col-model-audio">
+        <span class="cfg-label">MODELO</span>
+        <select id="model-display" class="cfg-sel cfg-sel-main">
+          <option value="Music Studio">Music Studio (Stable Audio 3)</option>
+          <option value="ace_step_v1">TTS ACE-Step v1.0 3.5B</option>
+          <option value="ace_step_v1_5">TTS ACE-Step v1.5 Turbo 2B</option>
+          <option value="ace_step_v1_5_xl">TTS ACE-Step v1.5 XL Turbo 4B</option>
+          <option value="chatterbox">TTS Chatterbox Multilingual</option>
+          <option value="heartmula_oss_3b">TTS HeartMuLa 3B</option>
+          <option value="index_tts2">TTS Index TTS 2</option>
+          <option value="kugelaudio_0_open">TTS KugelAudio 0 Open 7B</option>
+          <option value="qwen3_tts_base">TTS Qwen3 1.7B</option>
+        </select>
+
+        <!-- Audio Prompt Type (modo de clonagem/tarefa) -->
+        <div id="audio-task-row" style="display:none">
+          <span class="cfg-label cfg-label-sub" id="audio-task-label">MODO DE ÁUDIO</span>
+          <select id="audio-prompt-type" class="cfg-sel cfg-sel-sub">
+            <option value="">Texto para Áudio</option>
+          </select>
+        </div>
+
+        <!-- Language / Speaker — model_mode -->
+        <div id="model-mode-row" style="display:none">
+          <span class="cfg-label cfg-label-sub" id="model-mode-label">IDIOMA</span>
+          <select id="model-mode-select" class="cfg-sel cfg-sel-sub">
+            <option value="en">English</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <!-- Duração + Seed -->
+      <div class="cfg-col cfg-col-dur-audio">
+        <span class="cfg-label">DURAÇÃO</span>
+        <div class="dur-display">
+          <span id="dur-val" class="dur-num">20s</span>
+        </div>
+        <input type="range" id="dur-slider" class="dur-slider"
+               min="5" max="240" value="20" step="1" />
+        <!-- Número de gerações -->
+        <div style="margin-top:8px">
+          <span class="cfg-label cfg-label-sub">GERAÇÕES</span>
+          <div class="cfg-seed-row">
+            <select id="num-generations" class="cfg-sel cfg-sel-sub" style="flex:1">
+              <option value="1">1 versão</option>
+              <option value="2">2 versões</option>
+              <option value="3">3 versões</option>
+              <option value="4">4 versões</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Seed -->
+        <div class="cfg-seed-row" style="margin-top:6px">
+          <span class="cfg-label" style="margin:0">SEED</span>
+          <input type="number" id="seed-input" class="cfg-seed-num" value="42" min="0" max="999999999999999" disabled />
+          <button class="cfg-seed-dice active" id="seed-mode-rand" title="Aleatório — seed gerada automaticamente">🎲</button>
+          <button class="cfg-seed-dice" id="seed-mode-fix" title="Fixar seed — editar número">🔒</button>
+        </div>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <!-- Parâmetros específicos por modelo -->
+      <div class="cfg-col cfg-col-params">
+        <span class="cfg-label">PARÂMETROS</span>
+
+        <!-- Temperature (maioria dos modelos) -->
+        <div id="temperature-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">TEMPERATURE</span>
+          <div class="adv-slider-row">
+            <input type="range" id="temperature-slider" class="adv-slider" min="0.1" max="2.0" value="0.85" step="0.05" />
+            <span class="adv-val" id="temperature-val">0.85</span>
+          </div>
+        </div>
+
+        <!-- Exaggeration (Chatterbox) -->
+        <div id="exaggeration-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">EXAGGERATION (0.25–2.0)</span>
+          <div class="adv-slider-row">
+            <input type="range" id="exaggeration-slider" class="adv-slider" min="0.25" max="2.0" value="0.5" step="0.05" />
+            <span class="adv-val" id="exaggeration-val">0.50</span>
+          </div>
+        </div>
+
+        <!-- Pace (Chatterbox) -->
+        <div id="pace-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">PACE (0.2–1.0)</span>
+          <div class="adv-slider-row">
+            <input type="range" id="pace-slider" class="adv-slider" min="0.2" max="1.0" value="0.5" step="0.05" />
+            <span class="adv-val" id="pace-val">0.50</span>
+          </div>
+        </div>
+
+        <!-- BPM (ACE-Step 1.5) -->
+        <div id="bpm-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">BPM (30–300, vazio = auto)</span>
+          <input type="number" id="bpm-input" class="cfg-text-input cfg-num-sm" placeholder="—" min="30" max="300" />
+        </div>
+
+        <!-- KeyScale (ACE-Step 1.5) -->
+        <div id="keyscale-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">KEY SCALE (ex: C major)</span>
+          <input type="text" id="keyscale-input" class="cfg-text-input" placeholder="C major, F# minor…" />
+        </div>
+
+        <!-- Time Signature (ACE-Step 1.5) -->
+        <div id="timesig-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">TIME SIGNATURE</span>
+          <select id="timesig-select" class="cfg-sel cfg-sel-sub">
+            <option value="">— Auto —</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4">4</option>
+            <option value="6">6</option>
+          </select>
+        </div>
+
+        <!-- Language (ACE-Step 1.5, Chatterbox, Qwen3) -->
+        <div id="language-iso-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">IDIOMA</span>
+          <select id="language-iso-input" class="cfg-sel cfg-sel-sub">
+            <option value="">Auto-detectar</option>
+            <option value="pt">Português</option>
+            <option value="en">English</option>
+            <option value="es">Español</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="it">Italiano</option>
+            <option value="ja">日本語</option>
+            <option value="zh">中文</option>
+            <option value="ko">한국어</option>
+            <option value="ru">Русский</option>
+            <option value="ar">العربية</option>
+            <option value="hi">हिन्दी</option>
+            <option value="nl">Nederlands</option>
+            <option value="pl">Polski</option>
+            <option value="tr">Türkçe</option>
+          </select>
+        </div>
+
+        <!-- Auto Split (KugelAudio, IndexTTS2, Qwen3 Base) -->
+        <div id="auto-split-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">AUTO SPLIT (5–90s, opcional)</span>
+          <input type="number" id="auto-split-input" class="cfg-text-input cfg-num-sm" placeholder="—" min="5" max="90" />
+        </div>
+      </div>
+
+      <div class="cfg-sep"></div>
+
+      <!-- Guidance / Top-K / Top-P / Alt Guidance -->
+      <div class="cfg-col cfg-col-guidance">
+        <span class="cfg-label">AVANÇADO</span>
+
+        <!-- Guidance Scale -->
+        <div id="guidance-row">
+          <span class="cfg-label cfg-label-sub">GUIDANCE SCALE</span>
+          <div class="adv-slider-row">
+            <input type="range" id="guidance-slider" class="adv-slider" min="1" max="15" value="7" step="0.5" />
+            <span class="adv-val" id="guidance-val">7.0</span>
+          </div>
+        </div>
+
+        <!-- Top-K -->
+        <div id="topk-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">TOP-K</span>
+          <div class="adv-slider-row">
+            <input type="range" id="topk-slider" class="adv-slider" min="0" max="200" value="50" step="1" />
+            <span class="adv-val" id="topk-val">50</span>
+          </div>
+        </div>
+
+        <!-- Top-P -->
+        <div id="topp-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">TOP-P</span>
+          <div class="adv-slider-row">
+            <input type="range" id="topp-slider" class="adv-slider" min="0" max="1" value="0.9" step="0.01" />
+            <span class="adv-val" id="topp-val">0.90</span>
+          </div>
+        </div>
+
+        <!-- LM Guidance (ACE-Step 1.5) -->
+        <div id="alt-guidance-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">LM GUIDANCE (CFG)</span>
+          <div class="adv-slider-row">
+            <input type="range" id="alt-guidance-slider" class="adv-slider" min="1" max="10" value="2.5" step="0.5" />
+            <span class="adv-val" id="alt-guidance-val">2.5</span>
+          </div>
+        </div>
+
+        <!-- Audio Scale (ACE-Step Cover Mode) -->
+        <div id="audio-scale-row" style="display:none">
+          <span class="cfg-label cfg-label-sub">AUDIO SCALE</span>
+          <div class="adv-slider-row">
+            <input type="range" id="audio-scale-slider" class="adv-slider" min="0" max="1" value="0.5" step="0.05" />
+            <span class="adv-val" id="audio-scale-val">0.50</span>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /dock-settings -->
+
+    <!-- Gerar -->
+    <div class="dock-gen">
+      <button class="btn-gen" id="btn-generate">
+        <span class="gen-plus">+</span>
+        <span class="gen-lbl">GERAR</span>
+      </button>
+      <button class="btn-abort" id="btn-abort" title="Cancelar">&#10005; Cancelar</button>
+    </div>
+
+  </div><!-- /dock-body -->
+</div><!-- /gen-dock -->
+
+<!-- ZOOM WIDGET — fixed floating, fora do .studio para não ser afetado pelo layout -->
+<div id="zoom-widget">
+  <span class="zoom-label">Zoom da Interface</span>
+  <div class="zoom-control">
+    <button class="zoom-btn" id="zoom-out" title="Reduzir zoom">−</button>
+    <span class="zoom-val" id="zoom-val">100%</span>
+    <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+  </div>
+</div>
+<script src="../notif.js?v=1"></script>
+<script src="../tooltip.js?v=1" defer></script>
+<script src="./audio.js?v=13"></script>
+<script src="../media-browser.js?v=8"></script>
+<script>
+  /* Status-bar "ACS Studio conectado" — health check no boot (compartilhado entre tabs) */
+  (function(){
+    const sb = document.getElementById("status-bar");
+    if (!sb) return;
+    const show = (msg, type) => { sb.textContent = msg; sb.className = `status-bar visible ${type||""}`; };
+    const hide = () => sb.classList.remove("visible");
+    fetch("/health").then(r => r.json()).then(d => {
+      if (d && d.status === "ok") { show("ACS Studio conectado ✦", "done"); setTimeout(hide, 2500); }
+      else { show("Conectando ao motor...", "loading"); setTimeout(hide, 3500); }
+    }).catch(() => { show("Sem conexão com o motor", "error"); setTimeout(hide, 4000); });
+  })();
+  /* [v02] HUD Zoom — fixed widget, counter-scaled para nunca desaparecer no zoom in */
+  (function(){
+    const LEVELS=[0.75,0.85,0.9,1.0,1.1,1.25,1.5];const KEY="acs_zoom_level";
+    let idx=LEVELS.indexOf(parseFloat(localStorage.getItem(KEY)));if(idx<0)idx=3;
+    const widget=document.getElementById("zoom-widget");
+    const valEl=document.getElementById("zoom-val");
+    const outBtn=document.getElementById("zoom-out");
+    const inBtn=document.getElementById("zoom-in");
+    function apply(){
+      const z=LEVELS[idx];
+      document.body.style.zoom=z;
+      if(widget)widget.style.transform=`scale(${(1/z).toFixed(4)})`;
+      if(valEl)valEl.textContent=Math.round(z*100)+"%";
+      if(outBtn)outBtn.disabled=(idx===0);
+      if(inBtn)inBtn.disabled=(idx===LEVELS.length-1);
+      localStorage.setItem(KEY,z);
+    }
+    if(outBtn)outBtn.addEventListener("click",()=>{if(idx>0){idx--;apply();}});
+    if(inBtn)inBtn.addEventListener("click",()=>{if(idx<LEVELS.length-1){idx++;apply();}});
+    apply();
+  })();
+</script>
+  <script src="/studio/license-gate.js?v=1" defer></script>
+</body>
+</html>

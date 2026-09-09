@@ -1,0 +1,572 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACS Studio - Motion</title>
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <link rel="stylesheet" href="../media-browser.css?v=3" />
+  <link rel="stylesheet" href="motion.css?v=4" />
+  <script src="../gallery-delete.js?v=1" defer></script>
+</head>
+<body>
+<div class="studio">
+
+  <!-- ?? Sidebar ?????????????????????????????????????????????????? -->
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Create</div>
+      <a class="nav-item" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">Nano</span></a>
+      <a class="nav-item" href="/studio/video"><span class="nav-ic">▶</span>Video<span class="nav-badge">Pro</span></a>
+      <a class="nav-item" href="/studio/audio"><span class="nav-ic">♪</span>Audio<span class="nav-badge">Studio</span></a>
+      <a class="nav-item active" href="/studio/motion"><span class="nav-ic">⟳</span>Motion<span class="nav-badge">Control</span></a>
+      <div class="nav-group-label" style="margin-top:8px">Library</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">System</div>
+      <a class="nav-item" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot"><div class="sys-status"><span class="sys-dot"></span>System Online</div></div>
+  </aside>
+
+  <!-- ?? Main ????????????????????????????????????????????????????? -->
+  <div class="main" style="display:flex;flex-direction:column;overflow:hidden;position:relative">
+
+    <!-- Background glows -->
+    <div class="hero-glow hero-glow-teal"></div>
+    <div class="hero-glow hero-glow-violet"></div>
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <span class="topbar-brand-wrap"><span class="topbar-brand">AI Cinematic Studio</span><span class="topbar-unlimited">UNLIMITED</span></span>
+      <div class="topbar-right">
+        <button class="topbar-pill topbar-pill-license">◉ Licença Ativa</button>
+        <button class="topbar-pill">AC ▾</button>
+      </div>
+    </header>
+
+    <!-- ?? Motion Canvas (scrollable center) ???????????????????? -->
+    <div class="motion-canvas" id="motion-canvas">
+      <div class="status-bar" id="status-bar"></div>
+
+      <!-- Hero (shown when no output) -->
+      <div class="hero" id="motion-hero">
+        <div class="hero-eyebrow">ACS STUDIO · MOTION</div>
+        <h1 class="hero-title">Dê vida<br>às imagens</h1>
+        <p class="hero-desc">Selecione um modo abaixo para começar.</p>
+
+        <!-- Mode cards - clicking activates the dock mode -->
+        <div class="hero-mode-cards">
+          <div class="hero-mode-card" data-mode="image-motion">
+            <div class="hero-mode-card-name">⟳ Image Motion</div>
+            <div class="hero-mode-card-desc">Anime qualquer imagem estática com controles de movimento cinemático e Prompt.</div>
+            <span class="hero-mode-card-badge badge-stable">Estável</span>
+          </div>
+          <div class="hero-mode-card" data-mode="talking-image">
+            <div class="hero-mode-card-name">🗣 Talking Image</div>
+            <div class="hero-mode-card-desc">Transforme um retrato em um personagem falante sincronizado com seu áudio.</div>
+            <span class="hero-mode-card-badge badge-exp">Experimental</span>
+          </div>
+          <div class="hero-mode-card" data-mode="infinite-talk">
+            <div class="hero-mode-card-name">∞ Infinite Talk</div>
+            <div class="hero-mode-card-desc">Workflow avançado de vídeo falante com diálogos longos e transições de cena.</div>
+            <span class="hero-mode-card-badge badge-exp">Experimental</span>
+          </div>
+        </div>
+      </div><!-- /hero -->
+
+      <!-- Output player (shown after generation completes) -->
+      <div class="motion-player-wrap" id="motion-player-wrap">
+        <div class="vp-shell">
+          <video class="vp-video" id="vp-video" controls playsinline></video>
+          <div class="vp-bar">
+            <div class="vp-info">
+              <span class="vp-filename" id="vp-filename">-</span>
+            </div>
+            <div class="vp-btns">
+              <a class="vp-btn" id="vp-dl" href="#" download>↓ Baixar</a>
+              <button class="vp-btn" id="vp-copy">⎘ Copiar caminho</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /player-wrap -->
+
+    </div><!-- /motion-canvas -->
+
+    <!-- ?? Gallery Panel (right-edge overlay) ??????????????????? -->
+    <aside class="gallery-panel" id="gallery-panel">
+      <div class="gallery-panel-head">
+        <span class="gallery-panel-title">Gerações recentes</span>
+        <a class="gallery-ver-todas" href="/studio/gallery">Galeria →</a>
+      </div>
+      <div class="gallery-panel-grid" id="gallery-grid">
+        <!-- populated by motion.js loadRecentOutputs() -->
+      </div>
+    </aside>
+    <!-- 20px hotzone strip that triggers gallery peek on hover -->
+    <div class="gallery-hotzone" id="gallery-hotzone"></div>
+
+    <!-- ?? Toast (live status messages) ????????????????????????? -->
+    <div class="gen-toast" id="gen-toast">
+      <div class="toast-dot" id="toast-dot"></div>
+      <span id="toast-msg"></span>
+    </div>
+
+    <!-- ?? Generation Dock (fixed bottom) ??????????????????????? -->
+    <div class="gen-dock mode-image-motion" id="gen-dock">
+
+      <!-- ?? Mode strip ???????????????????????????????????????? -->
+      <div class="mode-strip">
+        <div class="mode-group">
+          <button class="mpill active" data-mode="image-motion">⟳ Image Motion</button>
+          <button class="mpill" data-mode="talking-image">🗣 Talking Image</button>
+          <button class="mpill" data-mode="infinite-talk">∞ Infinite Talk</button>
+          <button class="mpill" data-mode="character-animate">🕺 Animar Personagem</button>
+        </div>
+        <div class="mstrip-sep"></div>
+        <!-- Image Motion addon: End Frame (FLF mode) -->
+        <button class="apill" id="apill-end-frame" title="Adicionar End Frame – interpolação First-Last-Frame">+ End Frame</button>
+        <!-- Talking Image addon: 2nd Speaker -->
+        <button class="apill" id="apill-dual-spk" style="display:none" title="Adicionar segundo falante">+ Falante 2</button>
+        <!-- Refresh gallery -->
+        <button class="apill" id="apill-refresh" style="margin-left:auto" title="Atualizar gerações recentes">↺</button>
+      </div>
+
+      <!-- ?? Dock body ?????????????????????????????????????????? -->
+      <div class="dock-body">
+
+        <!-- Side: mode info panel -->
+        <div class="dock-side">
+          <div class="dock-side-title">Modo</div>
+          <div class="dock-side-mode-info">
+            <div class="dock-side-icon" id="ds-icon">⟳</div>
+            <div class="dock-side-name" id="ds-name">Image Motion</div>
+            <div class="dock-side-desc" id="ds-desc">Anime uma imagem estática com Prompt e controles de movimento.</div>
+            <div class="dock-side-badges" id="ds-badges">
+              <span class="dock-side-badge dsbadge-stable">Estável</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prompt / Info area -->
+        <div class="dock-prompt">
+          <div class="prompt-tabs">
+            <button class="ptab active" data-ptab="prompt">Prompt</button>
+            <button class="ptab" data-ptab="info">Informações do modo</button>
+          </div>
+          <!-- Prompt textarea -->
+          <div id="ptab-prompt-wrap" style="display:flex;flex-direction:column;flex:1;min-height:0">
+            <textarea class="prompt-ta" id="dock-prompt"
+              placeholder="Descreva o movimento desejado..."></textarea>
+            <div class="prompt-foot">
+              <span class="char-count" id="char-count">0 / 500</span>
+            </div>
+          </div>
+          <!-- Mode info panel (populated by JS) -->
+          <div id="ptab-info-wrap"
+            style="display:none;flex-direction:column;flex:1;overflow-y:auto;padding:10px 14px;gap:5px;min-height:0;font-size:10.5px;color:#494949;line-height:1.55">
+          </div>
+        </div>
+
+        <!-- Media zones -->
+        <div class="dock-media-col">
+
+          <!-- Zone: Reference Image (Image Motion & Talking Image) / Scene 1 (Infinite Talk) -->
+          <div class="media-zone zone-ref-img">
+            <div class="zone-label" id="zone-ref-img-label">Imagem de Referência</div>
+            <div class="zone-drop" id="zone-ref-img-drop" data-slot="ref-img">
+              <div class="zone-thumb" id="zone-ref-img-thumb"></div>
+              <input type="file" accept="image/*" id="zone-ref-img-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt" id="zone-ref-img-txt">Solte a imagem aqui</div>
+                <div class="zone-sub">JPG · PNG · WebP</div>
+              </div>
+              <button class="zone-clear" id="zone-ref-img-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Vídeo de Movimento (Animar Personagem / Scail2) -->
+          <div class="media-zone zone-ctrl-video" id="zone-ctrl-video-wrap">
+            <div class="zone-label">Vídeo de Movimento</div>
+            <div class="zone-drop" id="zone-ctrl-video-drop" data-slot="ctrl-video">
+              <div class="zone-thumb" id="zone-ctrl-video-thumb"></div>
+              <input type="file" accept="video/*" id="zone-ctrl-video-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt">Solte o vídeo de movimento</div>
+                <div class="zone-sub">A pessoa copia esse movimento</div>
+              </div>
+              <button class="zone-clear" id="zone-ctrl-video-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: End Frame (Image Motion + End Frame addon) -->
+          <div class="media-zone zone-end-frame" id="zone-end-frame-wrap">
+            <div class="zone-label">End Frame</div>
+            <div class="zone-drop" id="zone-end-frame-drop" data-slot="end-frame">
+              <div class="zone-thumb" id="zone-end-frame-thumb"></div>
+              <input type="file" accept="image/*" id="zone-end-frame-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt">Solte o End Frame</div>
+                <div class="zone-sub">Ativa interpolação FLF</div>
+              </div>
+              <button class="zone-clear" id="zone-end-frame-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Scene 2 (Infinite Talk) -->
+          <div class="media-zone zone-scene-2">
+            <div class="zone-label">Cena 2</div>
+            <div class="zone-drop" id="zone-scene-2-drop" data-slot="scene-2">
+              <div class="zone-thumb" id="zone-scene-2-thumb"></div>
+              <input type="file" accept="image/*" id="zone-scene-2-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt">Cena 2 (opcional)</div>
+                <div class="zone-sub">JPG · PNG · WebP</div>
+              </div>
+              <button class="zone-clear" id="zone-scene-2-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Scene 3 (Infinite Talk - hidden via CSS) -->
+          <div class="media-zone zone-scene-3">
+            <div class="zone-label">Cena 3</div>
+            <div class="zone-drop" id="zone-scene-3-drop" data-slot="scene-3">
+              <div class="zone-thumb" id="zone-scene-3-thumb"></div>
+              <input type="file" accept="image/*" id="zone-scene-3-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt">Cena 3 (opcional)</div>
+              </div>
+              <button class="zone-clear" id="zone-scene-3-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Scene 4 (Infinite Talk - hidden via CSS) -->
+          <div class="media-zone zone-scene-4">
+            <div class="zone-label">Cena 4</div>
+            <div class="zone-drop" id="zone-scene-4-drop" data-slot="scene-4">
+              <div class="zone-thumb" id="zone-scene-4-thumb"></div>
+              <input type="file" accept="image/*" id="zone-scene-4-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty">
+                <div class="zone-icon">⬆</div>
+                <div class="zone-txt">Cena 4 (opcional)</div>
+              </div>
+              <button class="zone-clear" id="zone-scene-4-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Audio 1 - hidden for Image Motion via CSS -->
+          <div class="media-zone media-zone-audio zone-audio-1">
+            <div class="zone-label" id="zone-audio-1-label">Áudio — Falante</div>
+            <div class="zone-drop zone-drop-audio" id="zone-audio-1-drop" data-slot="audio-1">
+              <input type="file" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a" id="zone-audio-1-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty" id="zone-audio-1-empty">
+                <div class="zone-icon">♫</div>
+                <div class="zone-txt">Solte o áudio aqui</div>
+                <div class="zone-sub">WAV · MP3 · OGG</div>
+              </div>
+              <div class="audio-preview" id="audio-1-preview" style="display:none">
+                <div class="audio-wave">
+                  <div class="wave-bar" style="animation-delay:.00s;animation-duration:.55s"></div>
+                  <div class="wave-bar" style="animation-delay:.09s;animation-duration:.48s"></div>
+                  <div class="wave-bar" style="animation-delay:.18s;animation-duration:.62s"></div>
+                  <div class="wave-bar" style="animation-delay:.27s;animation-duration:.44s"></div>
+                  <div class="wave-bar" style="animation-delay:.13s;animation-duration:.58s"></div>
+                  <div class="wave-bar" style="animation-delay:.05s;animation-duration:.50s"></div>
+                  <div class="wave-bar" style="animation-delay:.22s;animation-duration:.45s"></div>
+                </div>
+                <div class="audio-fname" id="audio-1-fname"></div>
+              </div>
+              <button class="zone-clear" id="zone-audio-1-clear">✕</button>
+            </div>
+          </div>
+
+          <!-- Zone: Audio 2 - Talking Image dual-speaker (JS-controlled display) -->
+          <div class="media-zone media-zone-audio zone-audio-2" id="zone-audio-2-wrap" style="display:none">
+            <div class="zone-label">Áudio — Falante 2</div>
+            <div class="zone-drop zone-drop-audio" id="zone-audio-2-drop" data-slot="audio-2">
+              <input type="file" accept="audio/*,.wav,.mp3,.ogg,.flac,.m4a" id="zone-audio-2-input"
+                style="position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%"/>
+              <div class="zone-empty" id="zone-audio-2-empty">
+                <div class="zone-icon">♫</div>
+                <div class="zone-txt">Áudio do Falante 2</div>
+                <div class="zone-sub">WAV · MP3 · OGG</div>
+              </div>
+              <div class="audio-preview" id="audio-2-preview" style="display:none">
+                <div class="audio-wave">
+                  <div class="wave-bar" style="animation-delay:.00s;animation-duration:.58s"></div>
+                  <div class="wave-bar" style="animation-delay:.12s;animation-duration:.46s"></div>
+                  <div class="wave-bar" style="animation-delay:.24s;animation-duration:.52s"></div>
+                  <div class="wave-bar" style="animation-delay:.08s;animation-duration:.61s"></div>
+                  <div class="wave-bar" style="animation-delay:.16s;animation-duration:.43s"></div>
+                </div>
+                <div class="audio-fname" id="audio-2-fname"></div>
+              </div>
+              <button class="zone-clear" id="zone-audio-2-clear">✕</button>
+            </div>
+          </div>
+
+        </div><!-- /dock-media-col -->
+
+        <!-- ?? Settings columns ???????????????????????????????? -->
+        <div class="dock-settings">
+
+          <!-- Model + Seed -->
+          <div class="cfg-col cfg-col-model">
+            <div class="cfg-label">Modelo</div>
+            <select class="cfg-sel" id="cfg-model">
+              <option value="Studio AI I2V">Studio AI I2V</option>
+              <option value="Cinematic Pro 1.1">Cinematic Pro 1.1</option>
+              <option value="Cinematic Pro Full">Cinematic Pro Full</option>
+              <option value="Talking Head" style="display:none">Talking Head</option>
+              <option value="Infinite Talk" style="display:none">Infinite Talk</option>
+              <option value="Character Animate" style="display:none">Character Animate</option>
+            </select>
+            <div class="cfg-label" style="margin-top:8px">Seed</div>
+            <div class="cfg-seed-row">
+              <input class="cfg-seed-num" type="number" id="cfg-seed" value="-1" min="-1" />
+              <button class="cfg-seed-dice" id="cfg-seed-dice" title="Aleatorizar seed">🎲</button>
+            </div>
+          </div>
+
+          <div class="cfg-sep"></div>
+
+          <!-- Duration -->
+          <div class="cfg-col cfg-col-dur">
+            <div class="cfg-label">Duração</div>
+            <div class="dur-display">
+              <span class="dur-num" id="dur-num">5</span>
+              <span class="dur-frames">s</span>
+            </div>
+            <input class="dur-slider" type="range" id="dur-slider" min="2" max="30" step="1" value="5" />
+          </div>
+
+          <div class="cfg-sep"></div>
+
+          <!-- Resolution + Steps -->
+          <div class="cfg-col cfg-col-resfmt">
+            <div class="cfg-label">Resolution</div>
+            <select class="cfg-sel" id="cfg-res">
+              <option value="832x480">480p – 832 × 480</option>
+              <option value="1280x720">720p – 1280 × 720</option>
+              <option value="480x832">480p Vertical</option>
+              <option value="720x1280">720p Vertical</option>
+              <option value="832x832">Quadrado – 832 × 832</option>
+            </select>
+            <div class="cfg-label" style="margin-top:8px">Inference Steps</div>
+            <input class="cfg-seed-num" type="number" id="cfg-steps" value="20" min="1" max="100"
+              style="max-width:unset;width:100%;box-sizing:border-box"/>
+          </div>
+
+          <div class="cfg-sep"></div>
+
+          <!-- Motion Amplitude (Image Motion only - CSS hides for other modes) -->
+          <div class="cfg-col cfg-col-motion">
+            <div class="cfg-label">Motion Amplitude</div>
+            <div class="amp-display">
+              <span class="amp-num" id="amp-num">1.0</span>
+              <span class="amp-label-sub">× intensidade</span>
+            </div>
+            <input class="amp-slider" type="range" id="amp-slider" min="0" max="2" step="0.1" value="1.0" />
+          </div>
+
+        </div><!-- /dock-settings -->
+
+        <!-- ?? Generate column ?????????????????????????????????? -->
+        <div class="dock-gen">
+          <div class="progress-ui" id="progress-ui" data-state="">
+            <div class="pui-header">
+              <span class="pui-icon" id="pui-icon">◎</span>
+              <span class="pui-step" id="pui-step">-</span>
+              <span class="pui-pct" id="pui-pct"></span>
+            </div>
+            <div class="pui-track">
+              <div class="pui-bar" id="pui-bar" style="width:0%"></div>
+            </div>
+            <div class="pui-time" id="pui-time"></div>
+          </div>
+          <!-- [FIX-MOTION] abre o Modo Avançado (drawer compartilhado, studio.css) -->
+          <button id="adv-toggle" title="Parâmetros avançados de geração"
+                  style="width:100%;margin-bottom:8px;padding:9px;border:1px solid #2a2a2a;border-radius:8px;background:rgba(255,255,255,.02);color:#bbb;font-size:12px;cursor:pointer;letter-spacing:.05em">⚙ MODO AVANÇADO</button>
+          <button class="btn-gen" id="btn-gen">
+            <span class="gen-plus">+</span>
+            <span class="gen-lbl">GERAR</span>
+          </button>
+          <button class="btn-abort" id="btn-abort">✕ Cancelar geração</button>
+        </div>
+
+      </div><!-- /dock-body -->
+    </div><!-- /gen-dock -->
+
+  </div><!-- /main -->
+</div><!-- /studio -->
+
+<!-- [FIX-MOTION] MODO AVANÇADO — portado da aba Vídeo (CSS já vem do studio.css compartilhado) -->
+<div id="advanced-drawer" class="advanced-drawer">
+  <div class="adv-header">
+    <span class="adv-title">⚙ MODO AVANÇADO — Parâmetros de Geração</span>
+    <button class="adv-close" id="adv-close">✕</button>
+  </div>
+  <div class="adv-body">
+
+    <div class="adv-col adv-col-neg">
+      <span class="adv-label">PROMPT NEGATIVO</span>
+      <textarea id="negative-input" class="adv-neg-ta"
+                placeholder="Elementos a evitar: blur, noise, distortion..."></textarea>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <div class="adv-col">
+      <span class="adv-label">GUIDANCE SCALE</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-guidance" class="adv-slider" min="1" max="15" value="5" step="0.5" />
+        <span class="adv-val" id="adv-guidance-val">5.0</span>
+      </div>
+      <span class="adv-label" style="margin-top:6px">FILM GRAIN — INTENSITY</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-grain-int" class="adv-slider" min="0" max="1" value="0" step="0.05" />
+        <span class="adv-val" id="adv-grain-int-val">0.00</span>
+      </div>
+      <span class="adv-label" style="margin-top:6px">FILM GRAIN — SATURATION</span>
+      <div class="adv-slider-row">
+        <input type="range" id="adv-grain-sat" class="adv-slider" min="0" max="1" value="0.5" step="0.05" />
+        <span class="adv-val" id="adv-grain-sat-val">0.50</span>
+      </div>
+    </div>
+
+    <!-- GUIDANCE PHASES — visível apenas para família ltx2 -->
+    <div class="adv-sep adv-sep-phases" id="adv-sep-phases" style="display:none"></div>
+    <div class="adv-col adv-col-phases" id="adv-col-phases" style="display:none">
+      <span class="adv-label">GUIDANCE PHASES</span>
+      <div class="adv-phases-row">
+        <button class="adv-phase-pill active" data-phase="">Auto</button>
+        <button class="adv-phase-pill" data-phase="1">1 Phase</button>
+        <button class="adv-phase-pill" data-phase="2">2 Phases</button>
+      </div>
+      <span class="adv-hint" id="adv-phases-hint">Pipeline automático por modelo</span>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <div class="adv-col adv-col-1177-temporal">
+      <span class="adv-group-title">⏱ TEMPORAL</span>
+      <span class="adv-label">RIFLEx — VÍDEOS LONGOS</span>
+      <select id="adv-riflex" class="adv-select">
+        <option value="0">Off — padrão</option>
+        <option value="1">Ativado</option>
+        <option value="2">Estendido</option>
+      </select>
+      <span class="adv-hint">Coerência temporal em vídeos longos (FreqRoPE)</span>
+      <span class="adv-label" style="margin-top:10px">UPSAMPLING DE FPS</span>
+      <select id="adv-temporal" class="adv-select">
+        <option value="">Off — padrão</option>
+        <option value="rife2">RIFE ×2 — dobrar FPS</option>
+        <option value="rife4">RIFE ×4 — quadruplicar FPS</option>
+      </select>
+      <span class="adv-hint">Interpolação pós-geração via RIFE</span>
+      <span class="adv-label" style="margin-top:10px">FPS DE SAÍDA</span>
+      <select id="adv-fps" class="adv-select">
+        <option value="">Auto — padrão do modelo</option>
+        <option value="8">8 fps — slow motion / cinematic</option>
+        <option value="16">16 fps — padrão</option>
+        <option value="24">24 fps — cinema</option>
+      </select>
+      <span class="adv-hint">Força FPS de saída (ignora padrão do modelo)</span>
+    </div>
+
+    <div class="adv-sep"></div>
+
+    <div class="adv-col adv-col-1177-quality">
+      <span class="adv-group-title">✦ QUALIDADE</span>
+      <span class="adv-label">SELF REFINER</span>
+      <select id="adv-self-refiner" class="adv-select">
+        <option value="0">Off — padrão</option>
+        <option value="1">Básico</option>
+        <option value="2">Estendido</option>
+      </select>
+      <span class="adv-hint">Refinamento iterativo do transformer (11.77+)</span>
+      <span class="adv-label" style="margin-top:10px">SPATIAL UPSAMPLING</span>
+      <select id="adv-spatial" class="adv-select">
+        <option value="">Off — padrão</option>
+        <option value="lanczos">Lanczos ×2</option>
+        <option value="flashvsr2">FlashVSR ×2 (nítido)</option>
+        <option value="flashvsr2pass2">FlashVSR Two Pass ×2 (rosto)</option>
+      </select>
+      <span class="adv-hint">Upscaling espacial pós-geração (ckpt 950 MB)</span>
+      <span class="adv-label" style="margin-top:10px">PROMPT ENHANCER</span>
+      <button class="adv-toggle" id="adv-enhancer" data-mode="">OFF</button>
+      <span class="adv-hint">OFF → Enhance (Gemma-3) → Relay (segmentos temporais)</span>
+    </div>
+
+  </div>
+</div>
+
+<!-- ZOOM WIDGET — fixed floating, igual Imagem/Áudio -->
+<div id="zoom-widget">
+  <span class="zoom-label">Zoom da Interface</span>
+  <div class="zoom-control">
+    <button class="zoom-btn" id="zoom-out" title="Reduzir zoom">−</button>
+    <span class="zoom-val" id="zoom-val">100%</span>
+    <button class="zoom-btn" id="zoom-in" title="Aumentar zoom">+</button>
+  </div>
+</div>
+
+<script src="../notif.js?v=1"></script>
+<script src="motion.js?v=14"></script>
+<script src="../media-browser.js?v=8"></script>
+<script>
+  /* Status-bar "ACS Studio conectado" - health check no boot (compartilhado entre tabs) */
+  (function(){
+    const sb = document.getElementById("status-bar");
+    if (!sb) return;
+    const show = (msg, type) => { sb.textContent = msg; sb.className = `status-bar visible ${type||""}`; };
+    const hide = () => sb.classList.remove("visible");
+    fetch("/health").then(r => r.json()).then(d => {
+      if (d && d.status === "ok") { show("ACS Studio conectado ?", "done"); setTimeout(hide, 2500); }
+      else { show("Conectando ao motor...", "loading"); setTimeout(hide, 3500); }
+    }).catch(() => { show("Sem conexão com o motor", "error"); setTimeout(hide, 4000); });
+  })();
+</script>
+<script>
+  /* [v02] HUD Zoom — widget flutuante counter-scaled */
+  (function(){
+    const LEVELS = [0.75, 0.85, 0.9, 1.0, 1.1, 1.25, 1.5];
+    const KEY = "acs_zoom_level";
+    let idx = LEVELS.indexOf(parseFloat(localStorage.getItem(KEY)));
+    if (idx < 0) idx = 3;
+    const widget = document.getElementById("zoom-widget");
+    const valEl = document.getElementById("zoom-val");
+    const outBtn = document.getElementById("zoom-out");
+    const inBtn  = document.getElementById("zoom-in");
+    function applyZoom() {
+      const z = LEVELS[idx];
+      document.body.style.zoom = z;
+      if (widget) widget.style.transform = `scale(${(1/z).toFixed(4)})`;
+      if (valEl) valEl.textContent = Math.round(z * 100) + "%";
+      if (outBtn) outBtn.disabled = (idx === 0);
+      if (inBtn)  inBtn.disabled  = (idx === LEVELS.length - 1);
+      localStorage.setItem(KEY, z);
+    }
+    if (outBtn) outBtn.addEventListener("click", () => { if (idx > 0) { idx--; applyZoom(); } });
+    if (inBtn)  inBtn.addEventListener("click",  () => { if (idx < LEVELS.length - 1) { idx++; applyZoom(); } });
+    applyZoom();
+  })();
+</script>
+  <script src="/studio/license-gate.js?v=1" defer></script>
+</body>
+</html>

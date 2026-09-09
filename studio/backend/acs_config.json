@@ -1,0 +1,12 @@
+{
+    "api_port": 8010,
+    "gradio_url": "http://localhost:7871",
+    "auto_open_browser": false,
+    "log_level": "info",
+    "output_limit": 200,
+    "generation_timeout_s": 1200,
+    "audio_timeout_s": 3600,
+    "gallery_limit": 100,
+    "dev_mode": false,
+    "stack": "AiStudio_Beta_v_02"
+}

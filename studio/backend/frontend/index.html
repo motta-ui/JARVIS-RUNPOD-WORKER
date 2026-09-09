@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AGI Studio</title>
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR
+══════════════════════════════════════════ -->
+<aside class="sidebar">
+  <div class="logo">
+    <span class="logo-acs">ACS</span>
+    <span class="logo-sub">STUDIO</span>
+  </div>
+
+  <nav class="side-nav">
+    <button class="nav-item active">
+      <span class="nav-ic">＋</span>Novo Projeto
+    </button>
+    <button class="nav-item">
+      <span class="nav-ic">▣</span>Meus Projetos
+    </button>
+    <button class="nav-item">
+      <span class="nav-ic">◉</span>Minhas Gerações
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item">
+      <span class="nav-ic">◎</span>Modelos
+    </button>
+    <button class="nav-item">
+      <span class="nav-ic">✦</span>Estilos
+    </button>
+    <button class="nav-item">
+      <span class="nav-ic">▣</span>Presets de Câmera
+    </button>
+    <div class="nav-sep"></div>
+    <button class="nav-item">
+      <span class="nav-ic">⚙</span>Configurações
+    </button>
+    <button class="nav-item">
+      <span class="nav-ic">ⓘ</span>Ajuda
+    </button>
+  </nav>
+
+  <div class="sidebar-foot">
+    <div class="storage-card">
+      <span class="sc-label">Armazenamento</span>
+      <span class="sc-value">27.4 GB / 200 GB</span>
+      <div class="sc-track"><div class="sc-fill" style="width:14%"></div></div>
+    </div>
+    <div class="upgrade-card">
+      <div class="uc-head">
+        <span>Upgrade Pro</span>
+        <span class="uc-crown">♛</span>
+      </div>
+      <p>Acesso ilimitado a modelos premium e recursos avançados.</p>
+      <button class="uc-btn">Fazer Upgrade</button>
+    </div>
+  </div>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     TOPBAR
+══════════════════════════════════════════ -->
+<header class="topbar">
+  <nav class="tb-nav">
+    <a class="tb-link active" href="#">Cinema Studio</a>
+    <a class="tb-link" href="#">Image</a>
+    <a class="tb-link" href="#">Video</a>
+    <a class="tb-link" href="#">Audio</a>
+    <a class="tb-link" href="#">Apps</a>
+  </nav>
+  <div class="tb-right">
+    <span class="tb-online"><span class="tb-dot"></span>Sistema Online</span>
+    <button class="tb-btn-license">Licença Ativa</button>
+    <button class="tb-btn-icon">⚙</button>
+    <button class="tb-btn-avatar">AC <span class="tb-arrow">▾</span></button>
+  </div>
+</header>
+
+<!-- ══════════════════════════════════════════
+     CANVAS PRINCIPAL
+══════════════════════════════════════════ -->
+<main class="canvas">
+
+  <!-- Glow cinematográfico de fundo -->
+  <div class="hero-glow" aria-hidden="true"></div>
+
+  <!-- HERO -->
+  <section class="hero">
+    <p class="hero-eyebrow">AI CINEMATIC STUDIO</p>
+    <h1 class="hero-title">O que você quer<br>criar hoje?</h1>
+    <p class="hero-desc">Crie vídeos, imagens e áudios cinematográficos com<br>inteligência artificial local e ilimitada.</p>
+  </section>
+
+  <!-- DIRECTOR PANEL -->
+  <section class="director-panel">
+
+    <!-- PROMPT -->
+    <div class="dp-prompt">
+      <span class="dp-label">PROMPT</span>
+      <textarea id="prompt-input" placeholder="Descreva sua cena, plano ou ideia..."></textarea>
+      <div class="dp-prompt-foot">
+        <button class="dp-magic" title="Magic Prompt">✦</button>
+        <span class="char-count" id="char-count">0 / 2000</span>
+      </div>
+    </div>
+
+    <!-- UPLOAD -->
+    <div class="dp-upload">
+      <span class="dp-label dp-label-muted">🔒 IMAGEM OU VÍDEO DE REFERÊNCIA</span>
+      <div class="drop-zone" id="drop-zone">
+        <div class="dz-icon">⧉</div>
+        <p>Arraste ou clique para enviar</p>
+        <small>PNG, JPG, MP4 até 200MB</small>
+        <input type="file" id="file-input" accept="image/*,video/*" hidden />
+      </div>
+    </div>
+
+    <!-- CONTROLS: MODEL + CAMERA + QUALITY + DURACAO/RESOLUCAO -->
+    <div class="dp-controls">
+
+      <div class="dc-col">
+        <span class="dp-label">MODELO</span>
+        <select class="dc-select">
+          <option>Cinematic Pro</option>
+          <option>Studio AI Pro</option>
+          <option>Gerador Realista</option>
+        </select>
+        <select class="dc-select dc-select-sub">
+          <option>□ Vídeo</option>
+          <option>□ Imagem</option>
+        </select>
+      </div>
+
+      <div class="dc-col">
+        <span class="dp-label">MOVIMENTO / CÂMERA</span>
+        <select class="dc-select">
+          <option>Cinematic Camera</option>
+          <option>Dynamic Motion</option>
+          <option>Câmera Estática</option>
+        </select>
+        <select class="dc-select dc-select-sub">
+          <option>∿ Movimento Suave</option>
+          <option>∿ Pan Lento</option>
+        </select>
+      </div>
+
+      <div class="dc-col">
+        <span class="dp-label">QUALIDADE</span>
+        <select class="dc-select">
+          <option>Professional</option>
+          <option>Balanced</option>
+          <option>Fast Render</option>
+        </select>
+        <div class="dc-badge">◈ Máxima Qualidade</div>
+      </div>
+
+      <!-- DURAÇÃO — slider -->
+      <div class="dc-col dc-col-sm">
+        <div class="dur-head">
+          <span class="dp-label" style="margin-bottom:0">DURAÇÃO</span>
+          <span class="dur-val" id="dur-val">5s</span>
+        </div>
+        <input type="range" id="dur-slider" class="dur-slider"
+               min="1" max="20" value="5" step="1" />
+        <div class="dur-ticks">
+          <span>1s</span><span>5s</span><span>10s</span><span>20s</span>
+        </div>
+      </div>
+
+      <!-- RESOLUÇÃO + FORMATO -->
+      <div class="dc-col dc-col-res">
+
+        <div class="res-row">
+          <div class="res-field">
+            <span class="dp-label">RESOLUÇÃO</span>
+            <select class="dc-select" id="res-quality">
+              <option value="256x144">144p  — 256 × 144</option>
+              <option value="426x240">240p  — 426 × 240</option>
+              <option value="640x360">360p  — 640 × 360</option>
+              <option value="854x480">480p  — 854 × 480</option>
+              <option value="1280x720" selected>720p  — 1280 × 720 (HD)</option>
+              <option value="1920x1080">1080p — 1920 × 1080 (Full HD)</option>
+              <option value="2560x1440">1440p — 2560 × 1440 (2K)</option>
+              <option value="3840x2160">2160p — 3840 × 2160 (4K)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="res-row">
+          <span class="dp-label">FORMATO</span>
+          <div class="fmt-btns">
+            <button class="fmt-btn active" data-ratio="16:9" data-label="Horizontal" title="Horizontal 16:9">
+              <span class="fmt-icon fmt-h"></span>
+              <span>16:9</span>
+            </button>
+            <button class="fmt-btn" data-ratio="9:16" data-label="Vertical" title="Vertical 9:16">
+              <span class="fmt-icon fmt-v"></span>
+              <span>9:16</span>
+            </button>
+            <button class="fmt-btn" data-ratio="1:1" data-label="Square" title="Square 1:1">
+              <span class="fmt-icon fmt-sq"></span>
+              <span>1:1</span>
+            </button>
+            <button class="fmt-btn" data-ratio="4:3" data-label="Classic" title="Classic 4:3">
+              <span class="fmt-icon fmt-43"></span>
+              <span>4:3</span>
+            </button>
+            <button class="fmt-btn" data-ratio="21:9" data-label="Cinema" title="Cinemascope 21:9">
+              <span class="fmt-icon fmt-cine"></span>
+              <span>21:9</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- GERAR -->
+    <div class="dp-gerar">
+      <button class="btn-gerar" id="btn-generate">
+        <span class="gerar-star">✦</span>
+        <span>GERAR</span>
+      </button>
+      <button class="btn-gerar-arrow" id="btn-generate-arrow">▾</button>
+    </div>
+
+  </section><!-- /director-panel -->
+
+  <!-- MODE TOGGLE -->
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-simple">↓ MODO SIMPLES</button>
+    <button class="mode-btn" id="btn-advanced">↓ MODO AVANÇADO</button>
+  </div>
+
+  <!-- PROJETOS RECENTES -->
+  <section class="recent">
+    <div class="recent-head">
+      <span class="recent-title">PROJETOS RECENTES</span>
+      <button class="btn-ver-todos">▣ Ver todos</button>
+    </div>
+    <div class="cards-grid">
+      <div class="card card-1">
+        <span class="card-duration">00:05</span>
+        <div class="card-foot">
+          <div class="card-name">Cena do oceano</div>
+          <div class="card-meta">Cinematic Pro · 720p</div>
+        </div>
+      </div>
+      <div class="card card-2">
+        <span class="card-duration">00:08</span>
+        <div class="card-foot">
+          <div class="card-name">Estrada no deserto</div>
+          <div class="card-meta">Studio AI Pro · 1080p</div>
+        </div>
+      </div>
+      <div class="card card-3">
+        <div class="card-foot">
+          <div class="card-name">Retrato noturno</div>
+          <div class="card-meta">Imagem · 4K</div>
+        </div>
+      </div>
+      <div class="card card-4">
+        <span class="card-duration">00:10</span>
+        <div class="card-foot">
+          <div class="card-name">Montanhas névoa</div>
+          <div class="card-meta">Cinematic Pro · 1080p</div>
+        </div>
+      </div>
+      <div class="card card-5">
+        <span class="card-duration">00:05</span>
+        <div class="card-foot">
+          <div class="card-name">Tempestade aérea</div>
+          <div class="card-meta">Studio AI · 720p</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main><!-- /canvas -->
+
+<!-- iframe oculto do Motor — mantém sessão ativa para geração -->
+<iframe id="gradio-frame"
+        src="/gradio/"
+        style="position:fixed;top:-9999px;left:-9999px;width:1280px;height:900px;opacity:0;pointer-events:none;"
+        aria-hidden="true">
+</iframe>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,1882 @@
+/* ══════════════════════════════════════════════════════
+   VIDEO MODULE — v73
+   [v51] UI fixes round 2 (2026-05-26):
+     - Dock: height: 460px FORÇADO (era max-height — não forçava)
+     - Advanced Drawer: todas as colunas flex: 1 (homogéneo)
+     - btn-gen cap: 120→240px (preenche dock-gen com dock maior)
+     - motion.css: scrollbar-width: none adicionado
+   [v50] UI fixes round 1:
+     - Prompt area altura ~2× (dock 312→460px)
+     - Advanced Drawer reposicionado (bottom 332→480px)
+     - Temporal/Quality cols 175→220px (menos esmagamento)
+     - Topbar adicionado (alinha com Image/Motion/Audio)
+     - Duração max 20→30s (HTML)
+     - Ctrl-select flags 11.77 (EVG/DVG/PVG/OVG/VG/V&G/KFI)
+     - Scrollbar video-canvas escondido
+     - dock-reserve override: 480px
+   NÃO altera backend, endpoints, lógica de áudio.
+══════════════════════════════════════════════════════ */
+
+/* [v52] dock-reserve restaurado ao original (dock 312px + margem) */
+:root {
+  --dock-reserve: clamp(332px, 37vh, 360px);
+}
+
+/* ── Overflow fix — sem scrollbar na página ──────────── */
+html, body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+/* ── Canvas ─────────────────────────────────────────── */
+.video-canvas {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  display: flex; flex-direction: column;
+  padding-bottom: var(--dock-reserve); /* usa override :root deste arquivo: 480px */
+  position: relative;
+  min-width: 0;
+  /* [v50] Esconder scrollbar vertical — canvas não precisa de scrollbar visível */
+  scrollbar-width: none;
+}
+.video-canvas::-webkit-scrollbar { display: none; }
+
+/* ── Hero glows ─────────────────────────────────────── */
+.hero-glow { position: fixed; pointer-events: none; z-index: 0; border-radius: 50%; }
+.hero-glow-purple {
+  top: -15vh; left: calc(var(--sidebar-w) - 8%);
+  width: 72vw; height: 110vh;
+  background: radial-gradient(ellipse, rgba(110,40,240,.48) 0%, rgba(80,20,180,.18) 38%, transparent 68%);
+}
+.hero-glow-amber {
+  top: -10vh; right: -8%;
+  width: 65vw; height: 105vh;
+  background: radial-gradient(ellipse, rgba(220,130,30,.38) 0%, rgba(180,90,20,.14) 38%, transparent 68%);
+}
+
+/* ── Hero ───────────────────────────────────────────── */
+.hero {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center;
+  flex: 1;
+  min-height: max(180px, calc(100vh - var(--dock-reserve))); /* FASE 2.5: piso 180px evita esmagamento em viewport baixo */
+  position: relative; z-index: 1;
+  padding: clamp(20px, 4vh, 36px) clamp(16px, 3vw, 32px); /* FASE 3: era 36px 32px */
+}
+.hero-eyebrow {
+  font-size: 9px; font-weight: 800; letter-spacing: 10px; color: var(--accent); opacity: .65;
+  margin-bottom: clamp(14px, 2.2vh, 22px); /* FASE 3: era 22px */
+}
+.hero-title {
+  font-size: clamp(36px, 6vw, 82px); /* FASE 3: era 82px fixo — clamp aqui é o alvo principal da fluidez */
+  font-weight: 900; line-height: 1.03; letter-spacing: -3px;
+  margin-bottom: clamp(12px, 2vh, 20px); /* FASE 3: era 20px */
+  background: linear-gradient(140deg,#fff 0%,rgba(255,255,255,.5) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.hero-desc { font-size: 14px; color: rgba(255,255,255,.3); line-height: 1.75; }
+
+/* ── Video Player ───────────────────────────────────── */
+.video-player-wrap {
+  display: none;
+  flex: 0 1 440px;         /* max ~440px tall, shrinks if needed */
+  flex-direction: column;
+  padding: 20px 24px 12px; position: relative; z-index: 1;
+  min-height: 0;
+}
+.video-player-wrap.visible {
+  display: flex;
+  flex: 1;                   /* BUG-3: preenche canvas quando hero está oculto */
+  max-width: clamp(480px, 72%, 860px); /* ITEM 2: limita largura em monitores largos */
+  margin-left: auto;
+  margin-right: auto;
+  justify-content: center;   /* ITEM 2: centraliza vp-shell verticalmente no wrapper */
+  padding-top: clamp(16px, 4vh, 60px); /* centralização vertical — reduzido para não desperdiçar espaço em telas pequenas */
+}
+.video-player-wrap.visible .vp-shell {
+  max-height: clamp(240px, calc(100vh - 600px), 640px); /* seguro: mín 240 / máx 640 */
+}
+.vp-shell {
+  flex: 1; display: flex; flex-direction: column; min-height: 0;
+  max-height: 400px;       /* preview contido — nunca domina a tela */
+  background: #0a0a14; border: 1px solid #1e1e30; border-radius: 14px; overflow: hidden;
+}
+.vp-video { flex: 1; min-height: 0; width: 100%; object-fit: contain; background: #000; display: block; }
+.vp-bar { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; border-top: 1px solid #161626; flex-shrink: 0; }
+.vp-info { display: flex; gap: 12px; }
+.vp-filename { font-size: 12px; color: #666; }
+.vp-size { font-size: 11px; color: #444; }
+.vp-btns { display: flex; gap: 8px; }
+.vp-btn {
+  font-size: 11px; font-weight: 600; padding: 5px 12px; border-radius: 7px;
+  border: 1px solid #252535; background: #0e0e1e; color: #aaa;
+  cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;
+  transition: border-color .2s, color .2s;
+}
+.vp-btn:hover { border-color: var(--accent); color: #fff; }
+
+/* ── Gallery Panel (lateral direita) — auto-hide overlay ── */
+.gallery-panel {
+  position: fixed;
+  right: 0; top: 0; bottom: 0; /* full height — fica atrás do dock por z-index */
+  width: 220px;
+  flex-shrink: 0;
+  background: #0b0b0b;
+  border-left: 1px solid #1a1a1a;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+  z-index: 80; /* abaixo do dock (100) e advanced-drawer (98) */
+  pointer-events: none;
+}
+.gallery-panel.peek {
+  transform: translateX(0);
+  pointer-events: auto;
+}
+/* Hot zone invisível — aciona a galeria ao aproximar da borda direita */
+.gallery-hotzone {
+  position: fixed;
+  right: 0; top: 0; bottom: 0;
+  width: 10px; /* reduzido de 20px → 10px para não sobrepor advanced-drawer (right:10px, z:98) */
+  z-index: 90; /* acima da galeria (80), abaixo do dock (100) e drawer (98) */
+  pointer-events: auto;
+}
+.gallery-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 12px 10px;
+  border-bottom: 1px solid #181818;
+  flex-shrink: 0;
+}
+.gallery-panel-title {
+  font-size: 8px; font-weight: 800; letter-spacing: 4px;
+  color: #555; text-transform: uppercase;
+}
+.gallery-ver-todas {
+  font-size: 9.5px; font-weight: 600; color: var(--accent);
+  text-decoration: none; opacity: .5; transition: opacity .2s;
+}
+.gallery-ver-todas:hover { opacity: 1; }
+.gallery-panel-grid {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 10px 10px var(--dock-reserve, 340px);
+  display: flex; flex-direction: column; gap: 8px;
+  scrollbar-width: none;
+}
+.gallery-panel-grid::-webkit-scrollbar { display: none; }
+/* Thumbnails na galeria lateral */
+.video-card {
+  aspect-ratio: 16/9; background: #0a0a0a; border: 1px solid #181818;
+  border-radius: 8px; overflow: hidden; cursor: pointer; position: relative;
+  flex-shrink: 0;
+  transition: border-color .2s, transform .15s;
+}
+.video-card:hover { border-color: #2a2a2a; transform: translateY(-1px); }
+.video-card video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-card-info {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent,rgba(0,0,0,.85));
+  padding: 14px 8px 5px; font-size: 9.5px; color: #555;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.btn-ver-todos { font-size: 10.5px; font-weight: 600; color: var(--accent); text-decoration: none; opacity: .6; transition: opacity .2s; }
+.btn-ver-todos:hover { opacity: 1; }
+
+/* ══════════════════════════════════════════════════════
+   GENERATION DOCK
+══════════════════════════════════════════════════════ */
+.gen-dock {
+  position: fixed;
+  bottom: 12px;
+  left: calc(var(--sidebar-w) + 10px); /* FASE 4 REVERTIDA — sidebar voltou a ser fixa 210px */
+  right: 10px; /* gallery é overlay — não ocupa espaço no fluxo */
+  z-index: 100;
+    /* [v52] Revertido ao tamanho original — dock controlado por conteúdo, capado em 312px. */
+  max-height: 312px;
+  display: flex;
+  flex-direction: column;
+  background: #131313;
+  border: 1px solid #202020;
+  border-radius: 20px;
+  overflow: hidden;
+  font-family: 'Inter', sans-serif;
+  box-shadow:
+    0 24px 80px rgba(0,0,0,.75),
+    0 8px 32px rgba(0,0,0,.5),
+    0 1px 0 rgba(255,255,255,.03) inset;
+}
+
+/* ── FAIXA DE MODOS ─────────────────────────────────── */
+.mode-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 14px; /* FASE 4 fix: 16 -> 14 */
+  height: 38px;    /* FASE 4 fix: 44 -> 38 (-14%) */
+  border-bottom: 1px solid #1c1c1c;
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: #0f0f0f;
+}
+.mode-strip::-webkit-scrollbar { display: none; }
+
+.mode-group, .addon-group { display: flex; gap: 4px; flex-shrink: 0; }
+.mstrip-sep { width: 1px; height: 16px; background: #252525; margin: 0 8px; flex-shrink: 0; }
+
+/* Modo pill */
+.mpill {
+  font-size: 13px; font-weight: 800; padding: 5px 16px; border-radius: 7px;
+  border: 1px solid #272727; background: none; color: #999;
+  cursor: pointer; white-space: nowrap; transition: all .2s;
+  letter-spacing: .1px;
+}
+.mpill:hover { color: #ccc; border-color: #363636; background: rgba(255,255,255,.04); }
+.mpill.active {
+  background: rgba(180,242,70,0.11);
+  border-color: rgba(180,242,70,0.5);
+  color: #b4f246;
+  box-shadow: 0 0 12px rgba(180,242,70,.12);
+}
+
+/* Addon pill */
+.apill {
+  font-size: 12.5px; font-weight: 800; padding: 5px 13px; border-radius: 7px;
+  border: 1px dashed #272727; background: none; color: #666;
+  cursor: pointer; white-space: nowrap; transition: all .2s;
+}
+.apill:hover { color: #999; border-color: #383838; border-style: solid; background: rgba(255,255,255,.03); }
+.apill.active {
+  border-style: solid;
+  background: rgba(180,242,70,0.09);
+  border-color: rgba(180,242,70,0.38);
+  color: #b4f246;
+}
+
+/* Sub-selects de addon */
+.addon-sub { display: flex; align-items: center; margin-left: 4px; }
+.addon-sub-sel {
+  font-size: 10px; background: #1a1a1a; border: 1px solid #2a2a2a;
+  color: #888; border-radius: 5px; padding: 3px 6px; cursor: pointer; outline: none;
+}
+
+/* ── CORPO ───────────────────────────────────────────── */
+.dock-body {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  flex: 1;
+  min-height: 0;
+  /* FASE 4 fix v2: removida `height: 480/380` — era inerte por causa de flex: 1 1 0%.
+     A altura real do dock vem do conteúdo mais alto (era .btn-gen 96px + paddings, agora 68px). */
+}
+
+/* ── Lado esquerdo: sistema ─────────────────────────── */
+.dock-side {
+  width: 130px; flex-shrink: 0; /* FASE 4 fix: 140 -> 130 */
+  border-right: 1px solid #1c1c1c;
+  display: flex; flex-direction: column;
+  padding: 12px 12px; gap: 8px; /* FASE 4 fix: 16 14 / 10 -> 12 12 / 8 */
+  background: #0d0d0d;
+}
+.storage-block { display: none; }
+.storage-label { font-size: 7.5px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #404040; }
+.storage-val { font-size: 10px; color: #555; }
+.storage-bar { height: 2px; background: #1e1e1e; border-radius: 2px; overflow: hidden; }
+.storage-fill { height: 100%; background: #b4f246; border-radius: 2px; }
+
+.upgrade-block { display: flex; flex-direction: column; gap: 6px; flex: 1; justify-content: center; }
+.upgrade-head { display: flex; align-items: center; gap: 5px; }
+.upgrade-icon { font-size: 11px; color: #b4f246; }
+.upgrade-title { font-size: 11px; font-weight: 700; color: #bbb; }
+.upgrade-desc { font-size: 9px; color: #484848; line-height: 1.5; }
+.upgrade-btn {
+  font-size: 9.5px; font-weight: 700; background: #b4f246; color: #080808;
+  border: none; border-radius: 7px; padding: 7px 11px; cursor: pointer;
+  align-self: flex-start; transition: filter .15s;
+}
+.upgrade-btn:hover { filter: brightness(1.1); }
+
+/* ── Prompt ─────────────────────────────────────────── */
+.dock-prompt {
+  flex: 0 0 300px;         /* largura fixa — nunca varia com modo */
+  border-right: 1px solid #1c1c1c;
+  display: flex; flex-direction: column;
+  transition: flex-basis .22s ease; /* transição suave ao trocar modo */
+}
+.prompt-tabs { display: flex; border-bottom: 1px solid #1c1c1c; flex-shrink: 0; }
+.ptab {
+  flex: 1; font-size: 11px; font-weight: 700; letter-spacing: 0.2px;
+  padding: 10px 4px; background: none; border: none; color: #5a5a5a;
+  cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s;
+}
+.ptab:hover { color: #8a8a8a; }
+.ptab.active { color: #b4f246; border-bottom-color: #b4f246; }
+
+.prompt-ta {
+  flex: 1; width: 100%; background: none; border: none; outline: none; resize: none;
+  color: #aaa; font-family: 'Inter', sans-serif; font-size: 13px; line-height: 1.72;
+  padding: 10px 14px; /* FASE 4 fix v2: 14 16 -> 10 14 */
+  caret-color: #b4f246;
+}
+.prompt-ta::placeholder { color: #2e2e2e; }
+.prompt-foot { padding: 5px 16px 8px; display: flex; justify-content: flex-end; flex-shrink: 0; }
+.char-count { font-size: 9px; color: #2e2e2e; font-variant-numeric: tabular-nums; }
+
+.neg-wrap { display: none; border-top: 1px solid #1e1e1e; }
+.neg-wrap.open { display: block; }
+.neg-ta {
+  width: 100%; height: 40px; background: none; border: none; outline: none; resize: none;
+  color: #444; font-family: 'Inter', sans-serif; font-size: 11px; padding: 7px 13px;
+}
+.neg-ta::placeholder { color: #222; }
+
+/* ── Coluna de mídia ─────────────────────────────────── */
+.dock-media-col {
+  flex: 0 0 220px;
+  border-right: 1px solid #1e1e1e;
+  display: flex; flex-direction: column;
+  transition: flex-basis .22s ease; /* transição suave ao mostrar/ocultar */
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Zonas de mídia — divisão vertical equilibrada */
+.media-zone {
+  flex: 1; display: flex; flex-direction: column;
+  border-bottom: 1px solid #1e1e1e; min-height: 0;
+}
+.media-zone:last-child { border-bottom: none; }
+.media-zone-audio { flex: 0 0 96px; }  /* áudio tem altura fixa generosa */
+
+.zone-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+  color: #5a5a5a;
+  padding: 10px 11px 6px; /* FASE 4 v3: 9 11 5 -> 10 11 6 — respiro vertical no label */
+  line-height: 1.35; flex-shrink: 0;
+}
+
+.zone-drop {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  cursor: pointer; position: relative; overflow: hidden;
+  margin: 0 10px 10px; /* FASE 4 v3: 0 9 9 -> 0 10 10 — leve respiro lateral/inferior */
+  border: 1px dashed #252525; border-radius: 9px;
+  gap: 6px;          /* FASE 4 v3: 5 -> 6 */
+  transition: border-color .2s, background .2s;
+  min-height: 60px;  /* FASE 4 v3: 48 -> 60 — garante respiro mesmo em modos com 3+ zones */
+}
+.zone-drop:hover { border-color: #333; background: rgba(255,255,255,.015); }
+.zone-drop.has-file { border-style: solid; border-color: #2e2e2e; }
+.zone-drop.drag-over  { border-color: #b4f246; background: rgba(180,242,70,.04); }
+.zone-drop.zone-required { border-color: rgba(255,80,80,.6); background: rgba(255,60,60,.04); animation: zreq .4s ease-in-out 3; }
+@keyframes zreq { 0%,100%{ border-color: rgba(255,80,80,.6); } 50%{ border-color: rgba(255,80,80,.15); } }
+
+.zone-thumb {
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  border-radius: 7px; display: none;
+}
+.zone-drop.has-file .zone-thumb { display: block; opacity: 0.75; }
+.zone-drop.has-file .zone-empty { display: none; }
+
+.zone-empty { display: flex; flex-direction: column; align-items: center; gap: 5px; text-align: center; padding: 8px 6px; /* FASE 4 v3: gap 4 -> 5; padding 6 -> 8 6 */ }
+.zone-icon { font-size: 18px; color: #2a2a2a; }
+.zone-txt  { font-size: 9px; font-weight: 600; color: #303030; line-height: 1.4; }
+.zone-sub  { font-size: 7.5px; color: #252525; }
+
+.zone-clear {
+  position: absolute; top: 4px; right: 4px;
+  width: 15px; height: 15px; border-radius: 50%;
+  background: rgba(0,0,0,.78); border: none; color: #777; font-size: 7px;
+  cursor: pointer; display: none; align-items: center; justify-content: center;
+}
+.zone-drop.has-file .zone-clear { display: flex; }
+
+/* Audio zone */
+.zone-drop-audio { flex-direction: column; gap: 5px; padding: 0 6px; border-radius: 8px; }
+.audio-preview { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 100%; }
+.audio-wave { display: flex; align-items: flex-end; gap: 1.5px; height: 22px; width: 80%; }
+.wave-bar {
+  flex: 1; background: #b4f246; opacity: 0.6; border-radius: 1px;
+  transform-origin: bottom; animation: wb .5s ease-in-out infinite alternate;
+}
+@keyframes wb { from { transform: scaleY(.2); } to { transform: scaleY(1); } }
+.audio-fname { font-size: 8px; color: #555; text-align: center; max-width: 90%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Configurações ───────────────────────────────────── */
+.dock-settings {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: row; align-items: stretch;
+  overflow: hidden;
+}
+
+.cfg-sep { width: 1px; background: #1c1c1c; flex-shrink: 0; margin: 14px 0; }
+
+.cfg-col {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 10px 12px; gap: 6px;   /* FASE 4 fix v2: 12 13 / 8 -> 10 12 / 6 */
+  flex: 1 1 0; min-width: 0;
+}
+/* Colunas principais — min-width para não esmagarem */
+.cfg-col-preset,
+.cfg-col-model,
+.cfg-col-cam,
+.cfg-col-qual {
+  flex: 1 1 0;
+  min-width: 96px;   /* nunca esmagam abaixo disto */
+}
+/* Preset — scroll interno para acomodar LoRAs + sliders expandidos */
+.cfg-col-preset {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180,242,70,.15) transparent;
+  justify-content: flex-start;  /* override: não centralizar — alinhar ao topo */
+}
+/* Duração — largura fixa */
+.cfg-col-dur { flex: 0 0 172px; }
+/* Resolução + Formato — largura fixa */
+.cfg-col-resfmt { flex: 0 0 218px; }
+
+/* Preset — intensidade row */
+.pcol-intensity-row {
+  display: flex; align-items: center; gap: 6px;
+}
+.pcol-intensity-lbl {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
+  text-transform: uppercase; color: #5a5a5a; flex-shrink: 0; white-space: nowrap;
+}
+.pcol-intensity-slider {
+  flex: 1; -webkit-appearance: none; height: 2px;
+  background: #282828; border-radius: 3px; outline: none; cursor: pointer;
+}
+.pcol-intensity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 13px;
+  background: #b4f246; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 8px rgba(180,242,70,.4);
+}
+.pcol-intensity-val {
+  font-size: 11px; font-weight: 600; color: #b4f246;
+  font-variant-numeric: tabular-nums; min-width: 28px; text-align: right; flex-shrink: 0;
+}
+/* Preset — botões APLICAR / ⟳ / ✕ */
+.pcol-btn-row {
+  display: flex; gap: 4px; flex-wrap: nowrap;
+}
+.pcol-btn {
+  min-width: 0; padding: 7px 4px;
+  border-radius: 6px; font-size: 9px; font-weight: 700;
+  font-family: 'Inter', sans-serif; letter-spacing: 0.4px;
+  cursor: pointer; white-space: nowrap; text-align: center;
+  transition: all .2s;
+}
+.pcol-btn-refresh {
+  flex: 1; background: none; border: 1px solid #262626; color: #666;
+  font-size: 10px; padding: 6px 8px;
+}
+.pcol-btn-refresh:hover { border-color: #404040; color: #aaa; }
+.pcol-btn-clear {
+  flex: 1; background: none; border: 1px solid #262626; color: #666;
+  font-size: 10px; padding: 6px 8px;
+}
+.pcol-btn-clear:hover { border-color: rgba(200,60,60,.4); color: #f55; background: rgba(200,60,60,.04); }
+
+/* Source Strength — visível só em I2V / Continue */
+.cfg-col-i2v-strength { display: none; }
+.cfg-sep-i2v-str      { display: none; }
+
+.cfg-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px; text-transform: uppercase;
+  color: #5a5a5a; white-space: normal; line-height: 1.3;
+}
+.cfg-label-sub {
+  margin-top: 5px; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.2px; color: #484848;
+}
+.cfg-audio-scale-row { display: flex; flex-direction: column; gap: 3px; margin-top: 3px; }
+
+/* ── Lipsync checkbox ── */
+.audio-lipsync-row {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(255,255,255,.06);
+}
+.audio-lipsync-label {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; color: #888; cursor: pointer;
+  user-select: none;
+}
+.audio-lipsync-label:hover { color: #aaa; }
+.audio-lipsync-check {
+  accent-color: #b4f246;
+  width: 13px; height: 13px; cursor: pointer; flex-shrink: 0;
+}
+.audio-lipsync-badge {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.5px;
+  background: rgba(180,242,70,.12); color: #b4f246;
+  border: 1px solid rgba(180,242,70,.25);
+  border-radius: 3px; padding: 1px 4px;
+  text-transform: uppercase;
+}
+/* Quando checked: destaque leve */
+.audio-lipsync-check:checked ~ span { color: #b4f246; }
+
+/* ── Audio info bar — explica o que acontece em cada modo ── */
+.audio-info-bar {
+  display: flex; align-items: flex-start; gap: 5px;
+  padding: 4px 7px; border-radius: 4px; margin-top: 4px;
+  font-size: 9px; font-weight: 600; letter-spacing: 0.15px; line-height: 1.35;
+  border: 1px solid transparent;
+  transition: background .22s, border-color .22s, color .22s;
+}
+.audio-info-icon { font-size: 10px; flex-shrink: 0; margin-top: 1px; }
+.audio-info-text { color: inherit; }
+
+/* Geração AI livre — roxo/índigo */
+.audio-info-bar.mode-generated {
+  background: rgba(130,90,255,.07); border-color: rgba(130,90,255,.18);
+  color: rgba(150,115,255,.7);
+}
+/* Conditioning AI — âmbar / aviso */
+.audio-info-bar.mode-conditioning {
+  background: rgba(255,160,30,.06); border-color: rgba(255,160,30,.2);
+  color: rgba(255,165,30,.72);
+}
+/* Post-process mux — lime (preservado = verde neon) */
+.audio-info-bar.mode-mux {
+  background: rgba(180,242,70,.05); border-color: rgba(180,242,70,.18);
+  color: rgba(180,242,70,.62);
+}
+
+.cfg-sel {
+  background: #1a1a1a; border: 1px solid #262626;
+  border-radius: 8px; color: #7a7a7a; font-size: 11px; font-weight: 500;
+  padding: 8px 22px 8px 10px; outline: none; cursor: pointer;
+  font-family: 'Inter', sans-serif; transition: border-color .2s, color .2s;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath fill='%23444' d='M0 0l4 5 4-5z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+  width: 100%; min-width: 0;
+  text-overflow: ellipsis; overflow: hidden;
+}
+.cfg-sel:hover, .cfg-sel:focus { border-color: #303030; color: #aaa; }
+.cfg-sel-main { }
+.cfg-sel-sub  { font-size: 10.5px; color: #606060; }
+
+/* Duração */
+.dur-display { display: flex; align-items: baseline; gap: 5px; }
+.dur-num { font-size: 28px; font-weight: 700; color: #5a5a5a; font-variant-numeric: tabular-nums; line-height: 1; }
+.dur-frames { font-size: 10px; font-weight: 600; color: #464646; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.dur-slider {
+  -webkit-appearance: none; width: 100%; height: 2px;
+  background: #282828; border-radius: 3px; outline: none; cursor: pointer; margin-top: 6px;
+}
+.dur-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  background: #b4f246; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 10px rgba(180,242,70,.45);
+}
+
+/* Seed row */
+.cfg-seed-row {
+  display: flex; align-items: center; gap: 4px; min-width: 0;
+}
+.cfg-seed-num {
+  flex: 1; min-width: 0; max-width: 72px;
+  background: #1a1a1a; border: 1px solid #262626;
+  border-radius: 7px; color: #666; font-size: 10px; font-family: 'Inter', sans-serif;
+  padding: 6px 5px; outline: none; text-align: center;
+  -moz-appearance: textfield;
+}
+.cfg-seed-num::-webkit-inner-spin-button { -webkit-appearance: none; }
+.cfg-seed-num:focus { border-color: #333; }
+.cfg-seed-dice {
+  background: none; border: none; font-size: 13px; cursor: pointer; opacity: .4; transition: opacity .15s;
+}
+.cfg-seed-dice:hover { opacity: .8; }
+
+/* Qualidade — toggle pills */
+.cfg-qpill-row { display: flex; gap: 3px; }
+.cfg-qpill {
+  flex: 1; padding: 7px 4px; border-radius: 6px;
+  border: 1px solid #252525; background: none;
+  color: #888; font-size: 10.5px; font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer; transition: all .2s; text-align: center; white-space: nowrap;
+}
+.cfg-qpill:hover { color: #ccc; border-color: #383838; background: rgba(255,255,255,.04); }
+.cfg-qpill.active {
+  background: rgba(180,242,70,.11);
+  border-color: rgba(180,242,70,.5);
+  color: #b4f246;
+  box-shadow: 0 0 8px rgba(180,242,70,.1);
+}
+
+/* Formato — botões com ícone proporcional */
+.cfg-fmt-row { display: flex; gap: 3px; }
+.cfg-fmt-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 7px 4px 6px; border-radius: 6px;
+  border: 1px solid #252525; background: none;
+  color: #888; font-size: 9px; font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer; transition: all .2s;
+}
+.cfg-fmt-btn:hover { color: #ccc; border-color: #383838; background: rgba(255,255,255,.04); }
+.cfg-fmt-btn.active {
+  background: rgba(180,242,70,.11);
+  border-color: rgba(180,242,70,.5);
+  color: #b4f246;
+  box-shadow: 0 0 8px rgba(180,242,70,.1);
+}
+.cfg-fmt-icon { background: currentColor; border-radius: 1.5px; opacity: .75; flex-shrink: 0; }
+.cfi-169 { width: 16px; height: 9px; }
+.cfi-916 { width: 9px;  height: 16px; }
+.cfi-11  { width: 12px; height: 12px; }
+.cfi-43  { width: 14px; height: 10px; }
+.cfi-219 { width: 18px; height: 7px; }
+
+/* ── Gerar ───────────────────────────────────────────── */
+.dock-gen {
+  width: 280px; flex-shrink: 0;
+  border-left: 1px solid #1c1c1c;
+  background: #0d0d0d;
+  display: flex; flex-direction: column;
+  align-items: stretch; justify-content: center;
+  gap: 8px;             /* FASE 4 fix v2: 10 -> 8 */
+  padding: 14px 16px;   /* FASE 4 fix v2: 20 18 -> 14 16 */
+}
+.btn-gen {
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  background: #b4f246; color: #070707;
+  border: none; border-radius: 16px; cursor: pointer;
+  font-size: 15px; font-weight: 900; letter-spacing: .8px;
+  height: 68px; /* FASE 4 fix v2: 96 -> 68 (-29%) — vilão real da altura do dock */
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 0 32px rgba(180,242,70,.26), 0 4px 16px rgba(0,0,0,.4);
+  transition: filter .2s, box-shadow .2s;
+}
+/* [v52] Revertido ao cap original 92px — dock volta a 312px. */
+.gen-dock.mode-i2v .btn-gen,
+.gen-dock.mode-flf .btn-gen,
+.gen-dock.mode-t2v .btn-gen,
+.gen-dock.mode-continue .btn-gen,
+.gen-dock.mode-t2i .btn-gen {
+  max-height: 92px;
+}
+.btn-gen:hover { filter: brightness(1.08); box-shadow: 0 0 48px rgba(180,242,70,.44), 0 4px 20px rgba(0,0,0,.5); }
+.btn-gen.generating {
+  background: #181818; color: #b4f246;
+  border: 1px solid rgba(180,242,70,.28);
+  animation: gpulse 1.4s ease-in-out infinite;
+}
+@keyframes gpulse { 0%,100%{ box-shadow: 0 0 12px rgba(180,242,70,.18); } 50%{ box-shadow: 0 0 30px rgba(180,242,70,.5); } }
+.gen-plus { font-size: 19px; font-weight: 300; }
+.gen-lbl  { font-size: 14px; font-weight: 900; letter-spacing: 1px; }
+
+/* ── Cancelar — estado dinâmico via CSS sibling ─────── */
+.btn-abort {
+  background: none;
+  border: 1px solid #1e1e1e;
+  border-radius: 9px;
+  color: #2c2c2c;
+  font-size: 10px; font-weight: 700;
+  padding: 9px 8px;
+  cursor: pointer;
+  transition: border-color .2s, color .2s, background .2s, box-shadow .2s;
+  font-family: 'Inter', sans-serif;
+  text-align: center;
+  letter-spacing: .3px;
+}
+/* Estado padrão: hover com vermelho */
+.btn-abort:hover {
+  border-color: rgba(200,60,60,.4);
+  color: #f55;
+  background: rgba(200,60,60,.04);
+}
+/* Quando gerando: botão cancelar fica âmbar/laranja — CSS sibling puro */
+.btn-gen.generating + .btn-abort {
+  color: rgba(255,145,30,.85);
+  border-color: rgba(255,145,30,.42);
+  background: rgba(255,145,30,.06);
+}
+.btn-gen.generating + .btn-abort:hover {
+  color: #ff9922;
+  border-color: rgba(255,145,30,.72);
+  background: rgba(255,145,30,.13);
+  box-shadow: 0 0 14px rgba(255,145,30,.14);
+}
+.btn-gen.generating + .btn-abort:active {
+  transform: scale(.97);
+}
+
+/* ── Toast ───────────────────────────────────────────── */
+.gen-toast {
+  position: fixed; bottom: calc(var(--dock-reserve, 340px) + 20px); left: 50%; transform: translateX(-50%);
+  background: rgba(7,7,14,.96); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 12px; padding: 9px 18px;
+  font-size: 12px; color: #aaaac8; font-weight: 500;
+  z-index: 200; display: none; align-items: center; gap: 9px;
+  backdrop-filter: blur(16px); box-shadow: 0 4px 28px rgba(0,0,0,.7);
+  white-space: nowrap; font-family: 'Inter', sans-serif;
+}
+.gen-toast.visible { display: flex; }
+.gen-toast.err  { border-color: rgba(200,60,60,.4);  color: #f88; }
+.gen-toast.warn { border-color: rgba(200,160,60,.4); color: #fa8; }
+.toast-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #b4f246; flex-shrink: 0;
+  animation: tblink 1s ease-in-out infinite;
+}
+.gen-toast.err  .toast-dot { background: #f66; }
+.gen-toast.warn .toast-dot { background: #fa6; }
+@keyframes tblink { 0%,100%{ opacity:1; } 50%{ opacity:.15; } }
+
+/* ══════════════════════════════════════════════════════
+   ADVANCED DRAWER
+   Cálculo [v50]:
+     dock bottom:   12px
+     dock max-h:   460px  (era 312px — aumentado para prompt maior)
+     gap desejado:   8px
+     bottom total: 480px
+   Histórico: 554px (dock 480) → 332px (dock 312) → 480px (dock 460, v50).
+══════════════════════════════════════════════════════ */
+.advanced-drawer {
+  position: fixed;
+  bottom: 332px;                           /* [v52] restaurado: dock(312) + bottom(12) + gap(8) */
+  left: calc(var(--sidebar-w) + 10px);
+  right: 10px;
+  z-index: 98;
+  max-height: calc(100vh - 346px);         /* [v52] restaurado: 100vh - 332 - 14px header */
+  overflow-y: auto;
+  background: #0f0f0f;
+  border: 1px solid #1e1e1e;
+  border-radius: 14px;
+  font-family: 'Inter', sans-serif;
+  box-shadow:
+    0 -4px 32px rgba(0,0,0,.55),
+    0 0 0 1px rgba(255,255,255,.018) inset;
+  transform: translateY(16px);             /* era 14px — animação levemente mais profunda */
+  opacity: 0;
+  transition: transform .28s cubic-bezier(.16,1,.3,1), opacity .22s;
+  pointer-events: none;
+}
+.advanced-drawer.open {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: all;
+}
+.adv-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 16px 8px;
+  border-bottom: 1px solid #191919;
+}
+.adv-title {
+  font-size: 8px; font-weight: 800; letter-spacing: 2px;
+  color: rgba(180,242,70,.35); text-transform: uppercase;
+}
+.adv-close {
+  background: none; border: none; color: #2e2e2e; font-size: 11px;
+  cursor: pointer; padding: 2px 6px; transition: color .15s;
+  font-family: 'Inter', sans-serif;
+}
+.adv-close:hover { color: #666; }
+.adv-body {
+  display: flex; flex-direction: row; align-items: stretch;
+  padding: 12px 16px; gap: 0; min-height: 0;
+}
+.adv-sep { width: 1px; background: #1c1c1c; margin: 0 16px; flex-shrink: 0; align-self: stretch; }
+/* [v51] Todas as colunas adv-col com flex: 1 — layout homogéneo igual em toda a largura.
+   Neg prompt, guidance, temporal e quality ficam com largura igual no drawer.
+   min-width: 160px evita esmagamento em ecrãs pequenos. */
+.adv-col { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 160px; }
+.adv-col-neg { flex: 1; min-width: 200px; /* remove fixed 210px — herda flex: 1 igual */ }
+.adv-col-enhancer { flex: 0 0 130px; justify-content: center; align-items: flex-start; }
+.adv-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  color: #5a5a5a;
+}
+.adv-neg-ta {
+  flex: 1; width: 100%; background: #161616; border: 1px solid #222;
+  border-radius: 8px; outline: none; resize: none; color: #666;
+  font-family: 'Inter', sans-serif; font-size: 11px; padding: 8px 10px;
+  caret-color: #b4f246; min-height: 72px; box-sizing: border-box;
+}
+.adv-neg-ta:focus { border-color: #2a2a2a; }
+.adv-neg-ta::placeholder { color: #282828; }
+.adv-slider-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.adv-slider {
+  flex: 1; -webkit-appearance: none; height: 2px;
+  background: #282828; border-radius: 3px; outline: none; cursor: pointer;
+}
+.adv-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 12px; height: 12px;
+  background: #b4f246; border-radius: 50%; cursor: pointer;
+  box-shadow: 0 0 8px rgba(180,242,70,.35);
+}
+.adv-val {
+  font-size: 10px; font-weight: 600; color: #505050;
+  font-variant-numeric: tabular-nums; min-width: 28px; text-align: right;
+}
+.adv-field { display: flex; flex-direction: column; gap: 4px; }
+.adv-num-input {
+  background: #1a1a1a; border: 1px solid #262626; border-radius: 7px;
+  color: #666; font-size: 11px; font-family: 'Inter', sans-serif;
+  padding: 7px 8px; outline: none; width: 80px;
+  -moz-appearance: textfield;
+}
+.adv-num-input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.adv-num-input:focus { border-color: #303030; }
+.adv-toggle {
+  font-size: 10.5px; font-weight: 800; padding: 8px 22px; border-radius: 8px;
+  border: 1px solid #252525; background: none; color: #444;
+  cursor: pointer; transition: all .2s; font-family: 'Inter', sans-serif;
+  margin-top: 4px;
+}
+.adv-toggle:hover { color: #888; border-color: #383838; }
+.adv-toggle.active {
+  background: rgba(180,242,70,.11);
+  border-color: rgba(180,242,70,.45);
+  color: #b4f246;
+}
+.adv-toggle.relay-mode {
+  background: rgba(255,183,77,.11);
+  border-color: rgba(255,183,77,.45);
+  color: #ffb74d;
+}
+.adv-hint {
+  font-size: 8px; color: #484848; line-height: 1.5; margin-top: 4px;
+}
+
+/* ── Advanced 11.77 — 2 grupos: Temporal + Qualidade ─── */
+/* [v51] flex: 1 — mesmo peso que guidance e neg prompt → layout completamente homogéneo */
+.adv-col-1177-temporal,
+.adv-col-1177-quality { flex: 1; min-width: 160px; justify-content: flex-start; }
+/* Grupo title — label de seção dentro da coluna */
+.adv-group-title {
+  display: block;
+  font-size: 9px; font-weight: 800; letter-spacing: 0.9px;
+  text-transform: uppercase; color: #3a3a3a;
+  border-bottom: 1px solid #1e1e1e;
+  padding-bottom: 5px; margin-bottom: 8px;
+}
+/* Compat: adv-col-1177 legado (não mais no HTML mas CSS não quebra) */
+.adv-col-1177 { flex: 0 0 190px; justify-content: flex-start; }
+
+/* ── LoRA capability — badges e avisos ─────────────────── */
+.lora-item-special > .lora-item-top .lora-name {
+  color: #b8a06a;   /* tom âmbar para LoRAs especiais */
+}
+.lora-badge {
+  display: inline-block; margin-left: 5px;
+  font-size: 8px; font-weight: 700; letter-spacing: 0.5px;
+  border-radius: 3px; padding: 1px 4px;
+  text-transform: uppercase; vertical-align: middle;
+}
+.lora-badge-special {
+  background: rgba(255,180,30,.12);
+  border: 1px solid rgba(255,180,30,.28);
+  color: rgba(255,180,30,.8);
+}
+/* Banner de aviso — aparece abaixo da lora-list quando LoRA especial está checked */
+.lora-warning {
+  display: flex; align-items: flex-start; gap: 5px;
+  padding: 6px 8px; border-radius: 6px; margin-top: 5px;
+  background: rgba(255,160,30,.07);
+  border: 1px solid rgba(255,160,30,.22);
+}
+.lora-warning-icon {
+  font-size: 11px; flex-shrink: 0; color: rgba(255,180,30,.85); margin-top: 1px;
+}
+.lora-warning-text {
+  font-size: 9.5px; font-weight: 600; color: rgba(255,170,30,.72);
+  line-height: 1.35; letter-spacing: 0.1px;
+}
+.adv-select {
+  background: #1a1a1a; border: 1px solid #262626; border-radius: 7px;
+  color: #666; font-size: 11px; font-family: 'Inter', sans-serif;
+  padding: 7px 10px; outline: none; cursor: pointer;
+  -webkit-appearance: none; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23444'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px;
+  margin-top: 3px;
+  text-overflow: ellipsis; overflow: hidden; white-space: nowrap;
+}
+.adv-select:focus { border-color: #303030; color: #888; }
+.adv-select option { background: #1a1a1a; }
+
+/* ── Guidance Phases pills ───────────────────────────── */
+.adv-col-phases { flex: 0 0 160px; justify-content: center; align-items: flex-start; }
+.adv-phases-row {
+  display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;
+}
+.adv-phase-pill {
+  font-size: 10px; font-weight: 700; padding: 5px 10px; border-radius: 7px;
+  border: 1px solid #252525; background: none; color: #444;
+  cursor: pointer; transition: all .2s; font-family: 'Inter', sans-serif;
+  letter-spacing: 0.2px;
+}
+.adv-phase-pill:hover { color: #888; border-color: #383838; }
+.adv-phase-pill.active {
+  background: rgba(94,140,255,.12);
+  border-color: rgba(94,140,255,.45);
+  color: #7aaaff;
+}
+
+/* ══════════════════════════════════════════════════════
+   I2V MODE — Cinematic Image Slot
+══════════════════════════════════════════════════════ */
+
+/* Column slightly wider — more presence for the image */
+.gen-dock.mode-i2v .dock-media-col {
+  flex-basis: 200px;
+}
+
+/* Hide audio zone — not needed in I2V */
+.gen-dock.mode-i2v #zone-audio {
+  display: none !important;
+}
+
+/* Zone label: accent-tinted, more legible */
+.gen-dock.mode-i2v #zone-ref .zone-label {
+  color: rgba(180,242,70,.28);
+  letter-spacing: 1.8px;
+  padding-top: 8px;
+}
+
+/* Drop zone: cinematic frame */
+.gen-dock.mode-i2v #drop-start {
+  margin: 6px 9px 9px;
+  border-radius: 9px;
+  border-color: #282828;
+  background: #0c0c0c;
+  transition: border-color .2s, background .2s, box-shadow .25s;
+}
+.gen-dock.mode-i2v #drop-start:hover {
+  border-color: rgba(180,242,70,.22);
+  background: #0e0e0e;
+  box-shadow: 0 0 22px rgba(180,242,70,.05);
+}
+
+/* Empty state */
+.gen-dock.mode-i2v #drop-start .zone-icon {
+  font-size: 24px; color: #252525;
+}
+.gen-dock.mode-i2v #drop-start .zone-txt {
+  font-size: 9.5px; font-weight: 600; color: #272727; letter-spacing: .3px;
+}
+.gen-dock.mode-i2v #drop-start .zone-sub {
+  font-size: 7.5px; color: #1e1e1e;
+}
+
+/* Loaded state */
+.gen-dock.mode-i2v #drop-start.has-file {
+  border-color: rgba(180,242,70,.16);
+  box-shadow: 0 0 28px rgba(0,0,0,.55);
+}
+.gen-dock.mode-i2v #drop-start.has-file #ref-thumb {
+  opacity: .88;
+}
+/* Gradient vignette */
+.gen-dock.mode-i2v #drop-start.has-file::before {
+  content: "";
+  position: absolute; bottom: 0; left: 0; right: 0; height: 42%;
+  background: linear-gradient(transparent, rgba(0,0,0,.72));
+  border-radius: 0 0 8px 8px;
+  pointer-events: none; z-index: 1;
+}
+/* "START FRAME" badge */
+.gen-dock.mode-i2v #drop-start::after {
+  content: "START FRAME";
+  position: absolute; bottom: 8px; left: 9px;
+  font-family: 'Inter', sans-serif;
+  font-size: 6px; font-weight: 800; letter-spacing: 1.8px;
+  text-transform: uppercase; color: rgba(180,242,70,.0);
+  background: rgba(0,0,0,.6); padding: 3px 7px; border-radius: 4px;
+  backdrop-filter: blur(6px); transition: color .25s; pointer-events: none; z-index: 2;
+}
+.gen-dock.mode-i2v #drop-start.has-file::after {
+  color: rgba(180,242,70,.78);
+}
+/* Clear button */
+.gen-dock.mode-i2v #drop-start.has-file .zone-clear {
+  background: rgba(0,0,0,.82); color: #999; width: 16px; height: 16px; font-size: 8px; z-index: 3;
+}
+
+/* ══════════════════════════════════════════════════════
+   I2V — Design System Pass
+══════════════════════════════════════════════════════ */
+
+.gen-dock.mode-i2v {
+  box-shadow:
+    0 8px 40px rgba(0,0,0,.65),
+    0 2px 12px rgba(0,0,0,.4),
+    inset 0 0 0 1px rgba(180,242,70,.04);
+}
+
+/* Addons suportados em I2V */
+.gen-dock.mode-i2v .apill[data-addon="ctrl-video"],
+.gen-dock.mode-i2v .apill[data-addon="frame-inj"] {
+  opacity: 1; pointer-events: auto;
+}
+
+/* Frame Inject — zonas 2/3 */
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3 { display: flex !important; }
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2 .zone-label,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3 .zone-label {
+  color: rgba(180,242,70,.3); letter-spacing: 0.5px;
+}
+.gen-dock.mode-i2v.addon-frame-inj #zone-ref .zone-label {
+  color: rgba(180,242,70,.45);
+}
+/* Add Frame button */
+.gen-dock.mode-t2v.addon-frame-inj #zone-add-inject,
+.gen-dock.mode-i2v.addon-frame-inj #zone-add-inject { display: flex !important; }
+
+/* ════════════════════════════════════════════════════════════════════════
+   FASE 4 v4 — INJECT FRAMES em modo i2v: layout HORIZONTAL via CSS Grid.
+   Antes: 3 zonas (ref/inj2/inj3) empilhadas verticalmente dentro da
+   .dock-media-col (220px), com flex: 1 dividindo igualmente → cada
+   zona com ~46px de altura, ilegíveis. Add Frame quase invisível.
+   Depois: dock-media-col mais larga (220 → 360px), zonas lado a lado
+   na 1ª linha, Add Frame na 2ª, Audio na 3ª.
+   ════════════════════════════════════════════════════════════════════════ */
+.gen-dock.mode-i2v.addon-frame-inj .dock-media-col {
+  flex-basis: 500px;  /* v4-e: 280 -> 500 (+78%) — quase dobra, 5 frames sem scroll */
+  position: relative;
+  /* v4-d2: frames em row única com scroll-x; Add Frame e Audio absolute na base
+     (ficam fixos no viewport do container quando user rola horizontalmente). */
+  display: grid;
+  grid-template-rows: 130px;
+  grid-auto-flow: column;
+  grid-auto-columns: 88px;
+  gap: 5px;
+  padding: 5px 5px 132px;  /* 132 = 32 (Add) + 8 (gap) + 88 (Audio) + 4 (margem) */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180,242,70,.20) transparent;
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-media-col::-webkit-scrollbar { height: 5px; }
+.gen-dock.mode-i2v.addon-frame-inj .dock-media-col::-webkit-scrollbar-track { background: transparent; }
+.gen-dock.mode-i2v.addon-frame-inj .dock-media-col::-webkit-scrollbar-thumb { background: rgba(180,242,70,.18); border-radius: 5px; }
+.gen-dock.mode-i2v.addon-frame-inj .dock-media-col::-webkit-scrollbar-thumb:hover { background: rgba(180,242,70,.35); }
+.gen-dock.mode-i2v.addon-frame-inj .dock-prompt {
+  flex-basis: 260px; /* v4-f: 200 -> 260 — preservar Prompt (user pediu) */
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-gen {
+  width: 170px;      /* mantido — btn-gen ~138px confortável */
+}
+
+/* ━━━ Settings (v4-e): TODOS os essenciais preservados, mas Preset/Model/Quality
+   compactados pra dar mais largura ao Inject Frames.
+   - cfg-col-cam: oculto (Motion/Camera ainda a confirmar utilidade)
+   - cfg-col-preset, cfg-col-model, cfg-col-qual: min-width reduzido + padding mais apertado
+   - cfg-col-dur, cfg-col-resfmt, cfg-col-strength: preservados em larguras originais
+   - Espaço insuficiente: scroll-x suave no dock-settings */
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-cam {
+  display: none;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-cam + .cfg-sep {
+  display: none;
+}
+/* v4-f: Preset/Model/Quality COMPACTADOS agressivamente neste modo (mas não escondidos).
+   - min-width: 96 → 56 (-42%)
+   - padding interno: 12 13 → 5 7 (-58%)
+   - gap interno: 8 → 4 (-50%)
+   - labels e selects com tipografia menor (-1.5px) */
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-model,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-qual {
+  min-width: 56px;
+  flex: 1 1 0;
+  padding: 5px 7px;
+  gap: 4px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .cfg-label,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-model .cfg-label,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-qual .cfg-label {
+  font-size: 9px;           /* era 10.5 */
+  letter-spacing: 0.2px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .cfg-label-sub,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-model .cfg-label-sub,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-qual .cfg-label-sub {
+  font-size: 8.5px;
+  margin-top: 3px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .cfg-sel,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-model .cfg-sel,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-qual .cfg-sel {
+  font-size: 10px;
+  padding: 4px 6px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .pcol-intensity-lbl,
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .pcol-intensity-val {
+  font-size: 9.5px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-preset .pcol-btn {
+  font-size: 8px;
+  padding: 5px 3px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .cfg-col-qual .cfg-qpill {
+  font-size: 9.5px;
+  padding: 3px 6px;
+}
+
+/* Settings com scroll-x elegante quando overflow.
+   Scrollbar fina, accent lime para coerência. */
+.gen-dock.mode-i2v.addon-frame-inj .dock-settings {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(180,242,70,.20) transparent;
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-settings::-webkit-scrollbar {
+  height: 5px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-settings::-webkit-scrollbar-track {
+  background: transparent;
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-settings::-webkit-scrollbar-thumb {
+  background: rgba(180,242,70,.18);
+  border-radius: 5px;
+}
+.gen-dock.mode-i2v.addon-frame-inj .dock-settings::-webkit-scrollbar-thumb:hover {
+  background: rgba(180,242,70,.35);
+}
+
+/* v4-d2: frames na row 1 do grid; Add+Audio absolute na base do container.
+   Resultado: scroll horizontal apenas afeta a row de frames; Add+Audio permanecem
+   fixos no viewport do container. Suporta N frames (3, 4, 5+) sem quebrar para row 2. */
+.gen-dock.mode-i2v.addon-frame-inj #zone-ref,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3,
+.gen-dock.mode-i2v.addon-frame-inj .media-zone-inj {
+  grid-row: 1;
+}
+.gen-dock.mode-i2v.addon-frame-inj #zone-add-inject {
+  position: absolute;
+  bottom: 96px;       /* logo acima do audio */
+  left: 5px; right: 5px;
+  height: 32px;
+  width: auto;
+  margin: 0;
+}
+.gen-dock.mode-i2v.addon-frame-inj #zone-audio {
+  position: absolute;
+  bottom: 5px;
+  left: 5px; right: 5px;
+  height: 88px;
+  width: auto;
+}
+
+/* Cada inject zone vira um cartão retangular com borda própria */
+.gen-dock.mode-i2v.addon-frame-inj #zone-ref,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3 {
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  min-height: 0; /* libera grid sizing */
+}
+.gen-dock.mode-i2v.addon-frame-inj #zone-ref .zone-drop,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2 .zone-drop,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3 .zone-drop {
+  margin: 0 5px 5px;
+  min-height: 0;
+}
+.gen-dock.mode-i2v.addon-frame-inj #zone-ref .zone-label,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj2 .zone-label,
+.gen-dock.mode-i2v.addon-frame-inj #zone-inj3 .zone-label {
+  font-size: 9.5px;
+  padding: 7px 8px 4px;
+}
+
+/* Add Frame button — agora full-width na 2ª linha do grid */
+.gen-dock.mode-i2v.addon-frame-inj #zone-add-inject {
+  width: 100%;
+  margin: 0;
+  padding: 9px 0;
+  font-size: 9.5px;
+}
+
+/* Audio mantém visual, ocupa linha inteira */
+.gen-dock.mode-i2v.addon-frame-inj #zone-audio {
+  border: 1px solid #1e1e1e;
+  border-radius: 8px;
+  height: 88px;
+}
+
+/* Ctrl Video */
+.gen-dock.mode-i2v.addon-ctrl-video #zone-ctrl { display: flex !important; }
+.gen-dock.mode-i2v.addon-ctrl-video #zone-ctrl .zone-label {
+  color: rgba(180,242,70,.28); letter-spacing: 0.5px;
+}
+
+#zone-ctrl .zone-sub { font-size: 7px; color: #202020; }
+
+/* Add Frame button base */
+#zone-add-inject {
+  display: none;
+  align-items: center; justify-content: center;
+  width: calc(100% - 12px); padding: 7px 0;
+  background: transparent;
+  border: 1px dashed #222;
+  border-radius: 7px;
+  color: #333; font-size: 9px; font-weight: 700;
+  letter-spacing: 1px; cursor: pointer;
+  transition: border-color .18s, color .18s;
+  margin: 4px 6px 6px;
+}
+#zone-add-inject:hover {
+  border-color: rgba(180,242,70,.22);
+  color: rgba(180,242,70,.5);
+}
+
+/* Zonas dinâmicas extra */
+#zone-inj-extra { display: contents; }
+
+/* Left panel: badge only in I2V */
+.gen-dock.mode-i2v .upgrade-block { display: none; }
+.gen-dock.mode-i2v .dock-side { justify-content: flex-start; gap: 0; }
+.gen-dock.mode-i2v .dock-side::after {
+  content: "IMG → VID";
+  display: block;
+  font-size: 6.5px; font-weight: 800; letter-spacing: 2.8px;
+  color: rgba(180,242,70,.18); text-align: center;
+  margin-top: auto; padding: 10px 0 8px;
+  border-top: 1px solid #191919;
+}
+
+/* Prompt: accent edge */
+.gen-dock.mode-i2v .dock-prompt {
+  border-left-color: rgba(180,242,70,.1);
+  flex-basis: 340px;
+}
+.gen-dock.mode-i2v .prompt-ta { font-size: 13px; }
+.gen-dock.mode-i2v .prompt-ta::placeholder { color: #303030; }
+.gen-dock.mode-i2v .ptab:not(.active) { color: #2e2e2e; }
+
+/* Settings */
+.gen-dock.mode-i2v .cfg-label { color: #3a3a3a; }
+.gen-dock.mode-i2v .dur-num { color: rgba(180,242,70,.45); }
+.gen-dock.mode-i2v .dur-slider::-webkit-slider-thumb { box-shadow: 0 0 10px rgba(180,242,70,.45); }
+.gen-dock.mode-i2v .cfg-qpill.active { box-shadow: 0 0 8px rgba(180,242,70,.12); }
+.gen-dock.mode-i2v .cfg-fmt-btn.active { box-shadow: 0 0 8px rgba(180,242,70,.1); }
+.gen-dock.mode-i2v .cfg-sel { color: #7a7a7a; }
+.gen-dock.mode-i2v .cfg-sel:hover, .gen-dock.mode-i2v .cfg-sel:focus { color: #aaa; border-color: #2e2e2e; }
+
+/* Source Strength: visível em I2V */
+.gen-dock.mode-i2v .cfg-sep-i2v-str       { display: block; }
+.gen-dock.mode-i2v .cfg-col-i2v-strength  { display: flex; flex: 0 0 110px; } /* ITEM 1: largura fixa, não compete com vizinhos */
+.gen-dock.mode-i2v .cfg-col-i2v-strength .dur-num { color: rgba(180,242,70,.4); font-size: 22px; }
+
+/* Ocultar painel lateral */
+.gen-dock.mode-i2v .dock-side { display: none; }
+
+/* Áudio: reativado em I2V */
+.gen-dock.mode-i2v #zone-audio { display: flex !important; }
+.gen-dock.mode-i2v .dock-media-col { flex-basis: 240px; }
+.gen-dock.mode-i2v .cfg-col-model { flex: 1 1 0; }
+
+/* Generate: full-height */
+.gen-dock.mode-i2v .dock-gen {
+  width: 288px; padding: 16px 16px; gap: 10px; background: #0b0b0b;
+}
+.gen-dock.mode-i2v .btn-gen {
+  flex: 1; height: auto; border-radius: 14px; font-size: 16px; letter-spacing: 1.3px;
+  box-shadow: 0 0 44px rgba(180,242,70,.28), 0 0 90px rgba(180,242,70,.09), 0 4px 22px rgba(0,0,0,.5);
+}
+.gen-dock.mode-i2v .btn-gen:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 0 64px rgba(180,242,70,.44), 0 0 120px rgba(180,242,70,.13), 0 6px 28px rgba(0,0,0,.6);
+}
+.gen-dock.mode-i2v .btn-gen.generating { flex: 1; height: auto; }
+
+/* ══════════════════════════════════════════════════════
+   FLF MODE — Cinematic First / Last Frame
+══════════════════════════════════════════════════════ */
+
+.gen-dock.mode-flf {
+  box-shadow:
+    0 12px 56px rgba(0,0,0,.72),
+    0 3px 16px rgba(0,0,0,.5),
+    inset 0 0 0 1px rgba(180,242,70,.03);
+}
+
+/* Ocultar side + áudio */
+.gen-dock.mode-flf .dock-side  { display: none; }
+.gen-dock.mode-flf #zone-audio { display: none !important; }
+.gen-dock.mode-flf .cfg-col-model { flex: 1 1 0; }
+
+/* Desativar addons irrelevantes */
+.gen-dock.mode-flf .apill[data-addon="ctrl-video"],
+.gen-dock.mode-flf .apill[data-addon="frame-inj"] { opacity: .18; pointer-events: none; }
+
+/* Prompt dominante */
+.gen-dock.mode-flf .dock-prompt {
+  flex-basis: 360px;
+  border-left: 2px solid rgba(180,242,70,.04);
+}
+.gen-dock.mode-flf .prompt-ta {
+  font-size: 13.5px; line-height: 1.78; padding: 14px 18px; color: #bcbcbc;
+}
+.gen-dock.mode-flf .prompt-ta::placeholder { color: #252525; font-style: italic; }
+
+/* Media col: slots lado a lado */
+.gen-dock.mode-flf .dock-media-col {
+  flex-basis: 400px; flex-direction: row; position: relative;
+}
+.gen-dock.mode-flf .media-zone {
+  flex: 1; border-bottom: none; border-right: 1px solid #1a1a1a;
+}
+.gen-dock.mode-flf .media-zone:last-child { border-right: none; }
+/* Seta de interpolação */
+.gen-dock.mode-flf .dock-media-col::after {
+  content: "→";
+  position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 13px; color: rgba(180,242,70,.18);
+  font-family: 'Inter', sans-serif; font-weight: 300; pointer-events: none; z-index: 10;
+  text-shadow: 0 0 12px rgba(180,242,70,.3);
+}
+
+/* Labels */
+.gen-dock.mode-flf #zone-ref .zone-label { color: rgba(180,242,70,.35); letter-spacing: 0.5px; font-size: 9.5px; }
+.gen-dock.mode-flf #zone-end .zone-label { color: rgba(180,242,70,.2); letter-spacing: 0.5px; font-size: 9.5px; }
+
+/* Drop zones */1341	.gen-dock.mode-flf #drop-start,
+.gen-dock.mode-flf #drop-end {
+  margin: 4px 8px 8px; border-radius: 9px; border-color: #272727; background: #0c0c0c;
+  transition: border-color .2s, background .2s, box-shadow .25s;
+}
+.gen-dock.mode-flf #drop-start:hover,
+.gen-dock.mode-flf #drop-end:hover {
+  border-color: rgba(180,242,70,.2); background: #0e0e0e; box-shadow: 0 0 18px rgba(180,242,70,.04);
+}
+.gen-dock.mode-flf #drop-start.has-file,
+.gen-dock.mode-flf #drop-end.has-file {
+  border-color: rgba(180,242,70,.15); box-shadow: 0 0 22px rgba(0,0,0,.5);
+}
+/* Vignettes */
+.gen-dock.mode-flf #drop-start.has-file::before,
+.gen-dock.mode-flf #drop-end.has-file::before {
+  content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(transparent, rgba(0,0,0,.72)); border-radius: 0 0 8px 8px; pointer-events: none; z-index: 1;
+}
+/* Badge START */
+.gen-dock.mode-flf #drop-start::after {
+  content: "START"; position: absolute; bottom: 7px; left: 8px;
+  font-family: 'Inter', sans-serif; font-size: 6px; font-weight: 800; letter-spacing: 2px;
+  color: rgba(180,242,70,.0); background: rgba(0,0,0,.6); padding: 3px 6px; border-radius: 3px;
+  backdrop-filter: blur(6px); transition: color .25s; pointer-events: none; z-index: 2;
+}
+.gen-dock.mode-flf #drop-start.has-file::after { color: rgba(180,242,70,.78); }
+/* Badge END */
+.gen-dock.mode-flf #drop-end::after {
+  content: "END"; position: absolute; bottom: 7px; left: 8px;
+  font-family: 'Inter', sans-serif; font-size: 6px; font-weight: 800; letter-spacing: 2px;
+  color: rgba(180,242,70,.0); background: rgba(0,0,0,.6); padding: 3px 6px; border-radius: 3px;
+  backdrop-filter: blur(6px); transition: color .25s; pointer-events: none; z-index: 2;
+}
+.gen-dock.mode-flf #drop-end.has-file::after { color: rgba(180,242,70,.78); }
+/* Empty state */
+.gen-dock.mode-flf #drop-start .zone-icon,
+.gen-dock.mode-flf #drop-end .zone-icon { font-size: 20px; color: #242424; }
+.gen-dock.mode-flf #drop-start .zone-txt,
+.gen-dock.mode-flf #drop-end .zone-txt  { font-size: 8.5px; color: #262626; }
+.gen-dock.mode-flf #drop-start .zone-sub,
+.gen-dock.mode-flf #drop-end .zone-sub  { font-size: 7px; color: #1e1e1e; }
+
+/* Settings */
+.gen-dock.mode-flf .cfg-col-cam,
+.gen-dock.mode-flf .cfg-col-qual { flex: 1 1 0; }
+.gen-dock.mode-flf .cfg-label    { color: #505050; }
+.gen-dock.mode-flf .dur-num      { color: rgba(180,242,70,.38); }
+
+/* Generate */
+.gen-dock.mode-flf .dock-gen { width: 288px; padding: 16px; gap: 10px; background: #0b0b0b; }
+.gen-dock.mode-flf .btn-gen {
+  flex: 1; height: auto; border-radius: 14px; font-size: 16px; letter-spacing: 1.3px;
+  box-shadow: 0 0 44px rgba(180,242,70,.26), 0 0 90px rgba(180,242,70,.08), 0 4px 22px rgba(0,0,0,.5);
+}
+.gen-dock.mode-flf .btn-gen:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 0 64px rgba(180,242,70,.44), 0 0 120px rgba(180,242,70,.12), 0 6px 28px rgba(0,0,0,.6);
+}
+.gen-dock.mode-flf .btn-gen.generating { flex: 1; height: auto; }
+
+/* ══════════════════════════════════════════════════════
+   T2V MODE — Cinematic Text Focus
+══════════════════════════════════════════════════════ */
+
+.gen-dock.mode-t2v {
+  box-shadow:
+    0 12px 56px rgba(0,0,0,.72),
+    0 3px 16px rgba(0,0,0,.5),
+    inset 0 0 0 1px rgba(180,242,70,.022);
+}
+
+/* Ocultar side + media */
+.gen-dock.mode-t2v .dock-side      { display: none; }
+.gen-dock.mode-t2v .dock-media-col { display: none; }
+
+/* Frame Inject em T2V */
+.gen-dock.mode-t2v.addon-frame-inj .dock-media-col { display: flex !important; }
+.gen-dock.mode-t2v.addon-frame-inj #zone-audio      { display: none !important; }
+.gen-dock.mode-t2v.addon-frame-inj #zone-end        { display: none !important; }
+.gen-dock.mode-t2v.addon-frame-inj #zone-ref .zone-label { color: rgba(180,242,70,.5); letter-spacing: 0.5px; }
+.gen-dock.mode-t2v.addon-frame-inj #zone-inj2,
+.gen-dock.mode-t2v.addon-frame-inj #zone-inj3 { display: flex !important; }
+.gen-dock.mode-t2v.addon-frame-inj #zone-inj2 .zone-label,
+.gen-dock.mode-t2v.addon-frame-inj #zone-inj3 .zone-label { color: rgba(180,242,70,.3); letter-spacing: 0.5px; }
+.media-zone-inj { flex: 1; }
+.media-zone-inj .zone-drop { cursor: pointer; }
+
+/* Ctrl Video em T2V */
+.gen-dock.mode-t2v.addon-ctrl-video .dock-media-col { display: flex !important; }
+.gen-dock.mode-t2v.addon-ctrl-video #zone-audio      { display: none !important; }
+.gen-dock.mode-t2v.addon-ctrl-video #zone-end        { display: none !important; }
+.gen-dock.mode-t2v.addon-ctrl-video #zone-ref .zone-label { color: rgba(180,242,70,.28); letter-spacing: 0.5px; }
+
+.gen-dock.mode-t2v .cfg-col-model { flex: 1 1 0; }
+
+/* Addons desativados em T2V base */
+.gen-dock.mode-t2v .apill { opacity: .18; pointer-events: none; }
+
+/* Prompt: canvas dominante — ocupa espaço da media que sumiu */
+.gen-dock.mode-t2v .dock-prompt {
+  flex-basis: 420px;
+  border-left: 2px solid rgba(180,242,70,.055);
+}
+.gen-dock.mode-t2v .prompt-ta {
+  font-size: 14px; line-height: 1.82; padding: 16px 20px; color: #c0c0c0;
+}
+.gen-dock.mode-t2v .prompt-ta::placeholder { color: #252525; font-style: italic; }
+.gen-dock.mode-t2v .char-count { color: #2a2a2a; }
+
+/* Settings */
+.gen-dock.mode-t2v .cfg-col-cam,
+.gen-dock.mode-t2v .cfg-col-qual { flex: 1 1 0; }
+.gen-dock.mode-t2v .cfg-label    { color: #525252; }
+.gen-dock.mode-t2v .dur-num      { color: rgba(180,242,70,.4); }
+.gen-dock.mode-t2v .dur-frames   { color: #404040; }
+
+/* Generate */
+.gen-dock.mode-t2v .dock-gen {
+  width: 296px; padding: 16px; gap: 10px; background: #0b0b0b;
+}
+.gen-dock.mode-t2v .btn-gen {
+  flex: 1; height: auto; border-radius: 14px; font-size: 17px; letter-spacing: 1.4px;
+  box-shadow: 0 0 48px rgba(180,242,70,.28), 0 0 96px rgba(180,242,70,.09), 0 4px 24px rgba(0,0,0,.5);
+}
+.gen-dock.mode-t2v .btn-gen:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 0 68px rgba(180,242,70,.46), 0 0 130px rgba(180,242,70,.14), 0 6px 28px rgba(0,0,0,.65);
+}
+.gen-dock.mode-t2v .btn-gen.generating { flex: 1; height: auto; }
+
+/* ══════════════════════════════════════════════════════
+   CONTINUE MODE — Extend Video
+══════════════════════════════════════════════════════ */
+
+.gen-dock.mode-continue {
+  box-shadow:
+    0 12px 56px rgba(0,0,0,.72),
+    0 3px 16px rgba(0,0,0,.5),
+    inset 0 1px 0 rgba(220,130,30,.07);
+}
+
+.gen-dock.mode-continue .dock-side  { display: none; }
+.gen-dock.mode-continue #zone-audio { display: none !important; }
+.gen-dock.mode-continue .apill { opacity: .18; pointer-events: none; }
+.gen-dock.mode-continue .cfg-col-model { flex: 1 1 0; }
+
+/* Source Strength visível */
+.gen-dock.mode-continue .cfg-sep-i2v-str       { display: block; }
+.gen-dock.mode-continue .cfg-col-i2v-strength  { display: flex; }
+.gen-dock.mode-continue .cfg-col-i2v-strength .dur-num { color: rgba(220,130,30,.5); font-size: 22px; }
+
+/* Media col: horizontal */
+.gen-dock.mode-continue .dock-media-col {
+  flex-basis: 400px; flex-direction: row; position: relative;
+}
+.gen-dock.mode-continue .media-zone {
+  flex: 1; border-bottom: none; border-right: 1px solid #1a1a1a;
+}
+.gen-dock.mode-continue .media-zone:last-child { border-right: none; }
+.gen-dock.mode-continue .dock-media-col::after {
+  content: "↩"; position: absolute; left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px; color: rgba(220,130,30,.3); pointer-events: none; z-index: 2;
+}
+
+/* Labels */
+.gen-dock.mode-continue #zone-ref .zone-label { color: rgba(220,130,30,.55); letter-spacing: 0.5px; font-size: 9.5px; }
+.gen-dock.mode-continue #zone-end .zone-label { color: rgba(220,130,30,.28); letter-spacing: 0.5px; font-size: 9.5px; }
+
+/* Drop zones amber */
+.gen-dock.mode-continue #drop-start,
+.gen-dock.mode-continue #drop-end {
+  margin: 4px 8px 8px; border-radius: 9px; border-color: #272727; background: #0c0c0c;
+  transition: border-color .2s, background .2s, box-shadow .25s;
+}
+.gen-dock.mode-continue #drop-start:hover,
+.gen-dock.mode-continue #drop-end:hover {
+  border-color: rgba(220,130,30,.2); background: #0e0e0e; box-shadow: 0 0 18px rgba(220,130,30,.04);
+}
+.gen-dock.mode-continue #drop-start.has-file,
+.gen-dock.mode-continue #drop-end.has-file {
+  border-color: rgba(220,130,30,.15); box-shadow: 0 0 22px rgba(0,0,0,.5);
+}
+.gen-dock.mode-continue #drop-start.has-file::before,
+.gen-dock.mode-continue #drop-end.has-file::before {
+  content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 40%;
+  background: linear-gradient(transparent, rgba(0,0,0,.55)); pointer-events: none; z-index: 1;
+}
+.gen-dock.mode-continue #drop-start::after {
+  content: "FONTE"; position: absolute; bottom: 7px; left: 8px;
+  font-family: 'Inter', sans-serif; font-size: 8px; font-weight: 700; letter-spacing: 1.2px;
+  color: rgba(220,130,30,.18); backdrop-filter: blur(6px); transition: color .25s; pointer-events: none; z-index: 2;
+}
+.gen-dock.mode-continue #drop-start.has-file::after { color: rgba(220,130,30,.78); }
+.gen-dock.mode-continue #drop-end::after {
+  content: "END (OPC.)"; position: absolute; bottom: 7px; left: 8px;
+  font-family: 'Inter', sans-serif; font-size: 8px; font-weight: 700; letter-spacing: 1.2px;
+  color: rgba(220,130,30,.12); backdrop-filter: blur(6px); transition: color .25s; pointer-events: none; z-index: 2;
+}
+.gen-dock.mode-continue #drop-end.has-file::after { color: rgba(220,130,30,.55); }
+.gen-dock.mode-continue #drop-start .zone-icon,
+.gen-dock.mode-continue #drop-end .zone-icon { font-size: 20px; color: #242424; }
+.gen-dock.mode-continue #drop-start .zone-txt,
+.gen-dock.mode-continue #drop-end .zone-txt  { font-size: 8.5px; color: #262626; }
+.gen-dock.mode-continue #drop-start .zone-sub,
+.gen-dock.mode-continue #drop-end .zone-sub  { font-size: 7px; color: #1e1e1e; }
+
+/* Prompt */
+.gen-dock.mode-continue .dock-prompt {
+  flex-basis: 360px;
+  border-left: 2px solid rgba(220,130,30,.04);
+}
+.gen-dock.mode-continue .prompt-ta {
+  font-size: 13.5px; line-height: 1.78; padding: 14px 18px; color: #c0c0c0;
+}
+.gen-dock.mode-continue .prompt-ta::placeholder { color: #252525; font-style: italic; }
+
+/* Settings */
+.gen-dock.mode-continue .cfg-col-cam,
+.gen-dock.mode-continue .cfg-col-qual { flex: 1 1 0; }
+.gen-dock.mode-continue .cfg-label    { color: #505050; }
+.gen-dock.mode-continue .dur-num      { color: rgba(220,130,30,.4); }
+
+/* Generate: amber */
+.gen-dock.mode-continue .dock-gen { width: 288px; padding: 16px; gap: 10px; background: #0b0b0b; }
+.gen-dock.mode-continue .btn-gen {
+  flex: 1; height: auto; border-radius: 14px; font-size: 16px; letter-spacing: 1.3px;
+  box-shadow: 0 0 44px rgba(220,130,30,.22), 0 0 90px rgba(220,130,30,.08), 0 4px 22px rgba(0,0,0,.5);
+}
+.gen-dock.mode-continue .btn-gen:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 0 64px rgba(220,130,30,.38), 0 0 120px rgba(220,130,30,.12), 0 6px 28px rgba(0,0,0,.6);
+}
+.gen-dock.mode-continue .btn-gen.generating { flex: 1; height: auto; }
+
+/* ══════════════════════════════════════════════════════
+   T2I MODE — Texto → Imagem
+══════════════════════════════════════════════════════ */
+
+.gen-dock.mode-t2i .dock-side      { display: none; }
+.gen-dock.mode-t2i .dock-media-col { display: none; }
+.gen-dock.mode-t2i .apill { opacity: .18; pointer-events: none; }
+.gen-dock.mode-t2i .cfg-col-model { flex: 1 1 0; }
+
+/* Prompt canvas — maior sem mídia */
+.gen-dock.mode-t2i .dock-prompt {
+  flex-basis: 480px;
+  border-left: 2px solid rgba(150,100,240,.05);
+}
+.gen-dock.mode-t2i .prompt-ta {
+  font-size: 14px; line-height: 1.82; padding: 16px 20px; color: #c0c0c0;
+}
+.gen-dock.mode-t2i .prompt-ta::placeholder { color: #252525; font-style: italic; }
+.gen-dock.mode-t2i .char-count { color: #2a2a2a; }
+
+/* Settings */
+.gen-dock.mode-t2i .cfg-col-cam,
+.gen-dock.mode-t2i .cfg-col-qual { flex: 1 1 0; }
+.gen-dock.mode-t2i .cfg-label    { color: #505050; }
+
+/* Generate: purple */
+.gen-dock.mode-t2i .dock-gen { width: 288px; padding: 16px; gap: 10px; background: #0b0b0b; }
+.gen-dock.mode-t2i .btn-gen {
+  flex: 1; height: auto; border-radius: 14px; font-size: 16px; letter-spacing: 1.3px;
+  box-shadow: 0 0 44px rgba(150,100,240,.22), 0 0 90px rgba(150,100,240,.08), 0 4px 22px rgba(0,0,0,.5);
+}
+.gen-dock.mode-t2i .btn-gen:hover {
+  filter: brightness(1.09);
+  box-shadow: 0 0 64px rgba(150,100,240,.38), 0 0 120px rgba(150,100,240,.12), 0 6px 28px rgba(0,0,0,.6);
+}
+.gen-dock.mode-t2i .btn-gen.generating { flex: 1; height: auto; }
+
+/* ── T2I: imagem de output no player ─────────────────── */
+.vp-img {
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  object-fit: contain;
+  border-radius: 8px;
+  display: none;
+}
+.vp-img.visible { display: block; }
+
+/* ══════════════════════════════════════════════════════
+   PROGRESS UI INLINE — v1.0
+   Estados: idle (invisível) | generating | completed | failed
+   Reseta apenas via progressReset() no início de nova geração.
+   Sem timeout — estado final persiste até próxima geração.
+══════════════════════════════════════════════════════ */
+
+.progress-ui {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  padding: 0;
+  margin: 0;
+  transition:
+    max-height 0.38s cubic-bezier(.16,1,.3,1),
+    opacity    0.30s ease,
+    padding    0.30s ease,
+    margin     0.30s ease;
+}
+
+.progress-ui[data-state="generating"],
+.progress-ui[data-state="completed"],
+.progress-ui[data-state="failed"] {
+  max-height: 72px;
+  opacity: 1;
+  padding: 10px 0 4px;
+  margin-top: 2px;
+}
+
+/* ── Header: ícone + step + pct + tempo ─────────────── */
+.pui-header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.pui-icon {
+  font-size: 9px;
+  flex-shrink: 0;
+  transition: color 0.3s;
+  line-height: 1;
+  width: 10px;
+  text-align: center;
+}
+
+.pui-step {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .1px;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s;
+  color: #3a3a3a;
+}
+
+.pui-pct {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  transition: color 0.3s;
+  color: #3a3a3a;
+  min-width: 36px;
+  text-align: right;
+}
+
+.pui-time {
+  font-size: 9.5px;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  color: #3a3a3a;
+  opacity: .6;
+  white-space: nowrap;
+  min-width: 56px;
+  text-align: right;
+  transition: color 0.3s, opacity 0.3s;
+}
+
+/* ── Subtitle: status de download (sem % fake) ───────── */
+.pui-sub {
+  display: none;
+  font-size: 9px;
+  line-height: 1.5;
+  color: rgba(255,255,255,.28);
+  padding: 2px 0 4px 17px; /* indent alinhado com pui-step */
+  white-space: pre-line;   /* respeita \n no texto */
+}
+
+.progress-ui[data-state="generating"] .pui-sub:not(:empty) {
+  display: block;
+}
+
+/* ── Trilho ──────────────────────────────────────────── */
+.pui-track {
+  position: relative;
+  height: 2px;
+  background: #1c1c1c;
+  border-radius: 2px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.pui-bar {
+  height: 100%;
+  border-radius: 2px;
+  width: 0%;
+  transition:
+    width      0.55s cubic-bezier(.16,1,.3,1),
+    background 0.4s ease,
+    box-shadow 0.4s ease;
+}
+
+/* ════ GENERATING ════════════════════════════════════════ */
+.progress-ui[data-state="generating"] .pui-icon {
+  color: #b4f246;
+  animation: pui-dot-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pui-dot-pulse {
+  0%,100% { opacity: 1; }
+  50%     { opacity: .28; }
+}
+
+.progress-ui[data-state="generating"] .pui-step { color: rgba(180,242,70,.6); }
+.progress-ui[data-state="generating"] .pui-pct  { color: #b4f246; }
+.progress-ui[data-state="generating"] .pui-time { color: rgba(180,242,70,.4); opacity: 1; }
+
+.progress-ui[data-state="generating"] .pui-bar {
+  background: #b4f246;
+  box-shadow: 0 0 7px rgba(180,242,70,.35);
+}
+
+.progress-ui[data-state="generating"] .pui-track::after {
+  content: "";
+  position: absolute;
+  top: 0; left: -70%; width: 70%; height: 100%;
+  background: linear-gradient(90deg, transparent 0%, rgba(180,242,70,.35) 50%, transparent 100%);
+  animation: pui-shine 1.9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes pui-shine {
+  0%   { left: -70%; }
+  100% { left: 170%; }
+}
+
+/* ════ COMPLETED ═════════════════════════════════════════ */
+.progress-ui[data-state="completed"] .pui-icon { color: #6abf47; }
+.progress-ui[data-state="completed"] .pui-step { color: #4d8f33; }
+.progress-ui[data-state="completed"] .pui-pct  { color: #5aaa38; }
+.progress-ui[data-state="completed"] .pui-time { color: #3d6e28; opacity: .85; }
+
+.progress-ui[data-state="completed"] .pui-bar {
+  background: #5aaa38;
+  box-shadow: 0 0 5px rgba(90,170,56,.38);
+}
+
+/* ════ FAILED / CANCELADO ════════════════════════════════ */
+.progress-ui[data-state="failed"] .pui-icon { color: #c84040; }
+.progress-ui[data-state="failed"] .pui-step { color: #904040; }
+.progress-ui[data-state="failed"] .pui-pct  { color: #904040; }
+.progress-ui[data-state="failed"] .pui-time { color: #5a2828; opacity: .75; }
+
+.progress-ui[data-state="failed"] .pui-bar {
+  background: rgba(200,60,60,.72);
+  box-shadow: 0 0 5px rgba(200,60,60,.28);
+}
+
+/* ══════════════════════════════════════════════════════
+   CANVAS HUD — overlay mostrado durante geração [v72]
+   Oculto por padrão; JS adiciona .visible via vidShowCanvasHud()
+══════════════════════════════════════════════════════ */
+.canvas-hud-loading {
+  display: none;
+}
+.canvas-hud-loading.visible {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex: 1;
+  min-height: max(180px, calc(100vh - var(--dock-reserve)));
+  padding: clamp(20px, 4vh, 36px) clamp(16px, 3vw, 32px);
+  position: relative;
+  z-index: 1;
+}
+
+/* Status text */
+.hud-main-status {
+  font-size: 15px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  text-align: center;
+}
+
+/* Step / sub info */
+.hud-step-info {
+  font-size: 12px;
+  color: var(--text-dim, rgba(255,255,255,0.35));
+  text-align: center;
+}
+
+/* Progress bar row */
+.hud-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hud-pct {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent, #d6ff00);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Download sub-line */
+#vid-dl-sub {
+  font-size: 11px;
+  color: var(--text-dim, rgba(255,255,255,0.35));
+  text-align: center;
+  max-width: 340px;
+  word-break: break-all;
+}
+
+/* Calm message (download) */
+#vid-dl-calm {
+  display: none;
+  font-size: 11px;
+  color: var(--text-dim, rgba(255,255,255,0.28));
+  text-align: center;
+  max-width: 280px;
+  font-style: italic;
+}
+
+/* Progress label */
+#vid-progress-label {
+  font-size: 11px;
+  color: var(--text-dim, rgba(255,255,255,0.3));
+  text-align: center;
+}

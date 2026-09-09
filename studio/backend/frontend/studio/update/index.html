@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ACS Studio — Update</title>
+  <link rel="stylesheet" href="/studio/fonts/inter.css" />
+  <link rel="stylesheet" href="../studio.css?v=31" />
+  <style>
+    /* ── Update page ── */
+    .upd-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+    .upd-body {
+      max-width: 640px;
+      margin: 32px auto;
+      padding: 0 24px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Version card */
+    .upd-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .upd-card-title {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .08em;
+      color: #555;
+      text-transform: uppercase;
+      margin-bottom: 14px;
+    }
+    .upd-version-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      margin-bottom: 4px;
+    }
+    .upd-version-label {
+      font-size: 11px;
+      color: #555;
+      width: 120px;
+      flex-shrink: 0;
+    }
+    .upd-version-val {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+      font-family: monospace;
+    }
+    .upd-version-val.loading {
+      color: #444;
+    }
+
+    /* Check button card */
+    .upd-check-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.09);
+      border-radius: 12px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .upd-check-info {
+      flex: 1;
+    }
+    .upd-check-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+    }
+    .upd-check-desc {
+      font-size: 11px;
+      color: #555;
+      line-height: 1.6;
+    }
+    .upd-btn {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      color: #e0e0e0;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 9px 18px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, border-color .15s;
+    }
+    .upd-btn:hover { background: rgba(255,255,255,.13); }
+    .upd-btn:disabled { opacity: .4; cursor: default; }
+
+    /* Status pill */
+    .upd-status {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 500;
+      border: 1px solid transparent;
+    }
+    .upd-status.visible { display: flex; }
+    .upd-status.ok {
+      background: rgba(100,220,100,.07);
+      border-color: rgba(100,220,100,.2);
+      color: #7de0a0;
+    }
+    .upd-status.info {
+      background: rgba(90,160,255,.07);
+      border-color: rgba(90,160,255,.2);
+      color: #88bbff;
+    }
+
+    /* Notice box */
+    .upd-notice {
+      background: rgba(255,255,255,.025);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 10px;
+      padding: 16px 20px;
+      font-size: 11px;
+      color: #555;
+      line-height: 1.7;
+    }
+    .upd-notice strong { color: #888; }
+    .upd-notice code {
+      background: rgba(255,255,255,.06);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10px;
+      color: #888;
+    }
+
+    /* Header strip */
+    .upd-header {
+      padding: 28px 24px 0;
+      max-width: 640px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .upd-page-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+    }
+    .upd-page-sub {
+      font-size: 11px;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+<div class="studio">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><span class="logo-acs">ACS</span><span class="logo-sub">STUDIO</span></div>
+    <nav class="nav-section">
+      <div class="nav-group-label">Criar</div>
+      <a class="nav-item" href="/studio/image"><span class="nav-ic">◻</span>Image<span class="nav-badge">BETA</span></a>
+      <a class="nav-item" href="/studio/video"><span class="nav-ic">▶</span>Video</a>
+      <a class="nav-item" href="/studio/audio"><span class="nav-ic">♪</span>Audio</a>
+      <a class="nav-item" href="/studio/motion"><span class="nav-ic">⟳</span>Motion</a>
+      <div class="nav-group-label" style="margin-top:8px">Biblioteca</div>
+      <a class="nav-item" href="/studio/assets"><span class="nav-ic">▣</span>Assets</a>
+      <a class="nav-item" href="/studio/gallery"><span class="nav-ic">◈</span>Gallery</a>
+      <div class="nav-group-label" style="margin-top:8px">Sistema</div>
+      <a class="nav-item" href="/studio/settings"><span class="nav-ic">⚙</span>Settings</a>
+      <a class="nav-item active" href="/studio/update"><span class="nav-ic">↑</span>Update</a>
+    </nav>
+    <div class="sidebar-foot"><div class="sys-status"><span class="sys-dot"></span>Sistema Online</div></div>
+  </aside>
+
+  <div class="main upd-main">
+    <header class="topbar">
+      <span class="topbar-title">Update</span>
+      <span class="topbar-sep"></span>
+      <div class="topbar-right">
+        <button class="topbar-pill">◉ Licença Ativa</button>
+        <button class="topbar-pill">AC ▾</button>
+      </div>
+    </header>
+
+    <div class="upd-header">
+      <div class="upd-page-title">Atualizações</div>
+      <div class="upd-page-sub" id="upd-last-check">Nunca verificado</div>
+    </div>
+
+    <div class="upd-body">
+
+      <!-- Versões instaladas -->
+      <div class="upd-card">
+        <div class="upd-card-title">Versão Instalada</div>
+        <div class="upd-version-row">
+          <span class="upd-version-label">ACS Studio API</span>
+          <span class="upd-version-val loading" id="v-acs">—</span>
+        </div>
+        <div class="upd-version-row">
+          <span class="upd-version-label">Motor de IA</span>
+          <span class="upd-version-val loading" id="v-wgp">—</span>
+        </div>
+        <div class="upd-version-row">
+          <span class="upd-version-label">Motor v2</span>
+          <span class="upd-version-val loading" id="v-mmgp">—</span>
+        </div>
+      </div>
+
+      <!-- Verificar atualizações -->
+      <div class="upd-check-card">
+        <div class="upd-check-info">
+          <div class="upd-check-title">Verificar Atualizações</div>
+          <div class="upd-check-desc">
+            Verifica se há uma nova versão do ACS Studio disponível.
+          </div>
+        </div>
+        <button class="upd-btn" id="btn-check">↑ Verificar</button>
+      </div>
+
+      <!-- Status da verificação -->
+      <div class="upd-status" id="upd-status">
+        <span id="upd-status-icon">✓</span>
+        <span id="upd-status-msg"></span>
+      </div>
+
+      <!-- Aviso: sistema em preparação -->
+      <div class="upd-notice">
+        <strong>Sistema de atualizações em preparação.</strong><br>
+        A verificação automática de novas versões estará disponível em breve.<br><br>
+        Por enquanto, consulte o canal de distribuição do ACS Studio para novas versões.<br>
+        As configurações do sistema são preservadas entre atualizações.
+      </div>
+
+    </div><!-- /upd-body -->
+  </div><!-- /main -->
+</div><!-- /studio -->
+
+<script>
+/* ── Update page v1.0 ── */
+const API = "";
+
+async function loadVersion() {
+  try {
+    const res  = await fetch(`${API}/version`);
+    const data = await res.json();
+    const set  = (id, val) => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = val || "—"; el.classList.remove("loading"); }
+    };
+    set("v-acs",  data.acs_api);
+    set("v-wgp",  data.wan2gp);
+    set("v-mmgp", data.mmgp);
+  } catch {
+    ["v-acs","v-wgp","v-mmgp"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.textContent = "indisponível"; }
+    });
+  }
+}
+
+function showStatus(type, icon, msg) {
+  const el    = document.getElementById("upd-status");
+  const iconEl = document.getElementById("upd-status-icon");
+  const msgEl  = document.getElementById("upd-status-msg");
+  if (!el) return;
+  el.className = `upd-status ${type} visible`;
+  if (iconEl) iconEl.textContent = icon;
+  if (msgEl)  msgEl.textContent  = msg;
+}
+
+document.getElementById("btn-check")?.addEventListener("click", async () => {
+  const btn = document.getElementById("btn-check");
+  if (btn) { btn.disabled = true; btn.textContent = "Verificando…"; }
+
+  try {
+    // Tenta buscar versão local para confirmar que o backend está disponível
+    const res  = await fetch(`${API}/version`);
+    const data = await res.json();
+
+    const now = new Date().toLocaleString("pt-BR");
+    const sub = document.getElementById("upd-last-check");
+    if (sub) sub.textContent = `Última verificação: ${now}`;
+
+    // Sistema em preparação — resposta mock informativa
+    showStatus("info", "ℹ",
+      `ACS Studio ${data.acs_api} instalado. Verificação remota ainda em preparação — confira o canal de distribuição para novidades.`
+    );
+  } catch {
+    showStatus("ok", "⚠", "Não foi possível conectar ao ACS Studio API. Certifique-se de que está rodando.");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "↑ Verificar"; }
+  }
+});
+
+document.addEventListener("DOMContentLoaded", loadVersion);
+</script>
+</body>
+</html>
