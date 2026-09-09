@@ -22,8 +22,8 @@
     "name": "Cinematic Pro Full",
     "category": "video",
     "engine_id": "ltx2",
-    "model_id": "ltx2_22B_1_1",
-    "workflow_id": "ltx2_22B_1_1",
+    "model_id": "ltx2_22B_distilled_1_1",
+    "workflow_id": "ltx2_22B_distilled_1_1",
     "status": "live"
   },
   {

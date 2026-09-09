@@ -71,17 +71,22 @@ video_prompt_type code: verified directly from
 Profundidade=DVG, Movimento Humano=PVG, Pose Align=OVG, IC Bruto=VG,
 HDR=V&G, Animar Personagem=V1), also documented in 00_WORKFLOW_MAP.md.
 
-Known, documented limitation: LoRA application (Studio's `loras` job
-parameter) is NOT translated into Wan2GP's `loras`/`loras_multipliers`
-settings here, because resolving a Studio LoRA-catalog id to an actual
-installed .safetensors path on the *remote* Worker's filesystem is not
-documented anywhere in the available source — inventing that mapping
-would silently apply the wrong (or no) LoRA. `get_capabilities()` reports
-`lora: False` for this reason; the LoRA catalog/inventory UI still works,
-it just doesn't reach generation through this adapter yet.
+Workflow/LoRA/utility resolution (JARVIS_WORKFLOW_PARITY_PACK, 2026-09-09):
+`_run()` resolves, in order, the logical workflow (registry/
+workflow_resolver.py — e.g. Image Motion routes to i2v or flf depending
+on end_frame presence), the LoRAs (registry/lora_resolver.py — real
+`activated_loras`/`loras_multipliers` for standalone LTX2 LoRAs, verified
+against models/ltx2/ltx2_handler.py and ltx2.py on the real Pod; LoRAs
+the Wan2GP engine manages internally via flags are never listed there),
+and the advanced settings (registry/utility_resolver.py — gated per
+model family, only fields audited against the real wgp.py go through).
+`get_capabilities()["lora"]` is real (True) for the ltx2 family; other
+families still don't have an audited LoRA capability file, so they keep
+returning conflicts instead of guessing.
 """
 from __future__ import annotations
 
+import json
 import mimetypes
 import threading
 import time
@@ -92,6 +97,8 @@ from ..base import BaseEngine
 from ...config import OUTPUTS_DIR
 from ...cloud import worker_connection as wc
 from ... import database as db
+from ...registry import workflow_resolver, lora_resolver, utility_resolver
+from .payload_builders import apply_workflow_extras
 
 try:
     import requests
@@ -145,7 +152,11 @@ class CloudWorkerEngine(BaseEngine):
             "t2v": True, "i2v": True, "t2i": True, "i2i": True,
             "audio": True, "music": True, "speech": True,
             "motion": True, "control_video": True, "frame_injection": True,
-            "reference_generation": True, "lora": False,
+            "reference_generation": True,
+            # Resolução real de LoRA (registry/lora_resolver.py) só está
+            # auditada para a família ltx2_22B* por agora — outras famílias
+            # continuam sem tradução real (ver histórico deste ficheiro).
+            "lora": self.id == "ltx2",
             "requires_cloud_worker": True,
         }
 
@@ -349,6 +360,20 @@ class CloudWorkerEngine(BaseEngine):
 
             self._set_job(job_id, status="RUNNING", started_at=db.now_iso())
 
+            # --- 1. Resolver o WORKFLOW LÓGICO (nunca um payload genérico) ---
+            mode = job_row.get("mode") or ""
+            workflow_id, workflow_warnings = workflow_resolver.resolve_workflow(mode, job_params)
+            missing = workflow_resolver.check_required_inputs(workflow_id, {
+                k: bool(job_params.get(k)) for k in (
+                    "start_image", "end_frame", "reference_image", "reference_video",
+                    "control_video", "audio", "prompt",
+                )
+            })
+            if missing:
+                raise RuntimeError(
+                    f"Workflow '{workflow_id}' (mode '{mode}') sem input(s) obrigatório(s): {', '.join(missing)}."
+                )
+
             settings: dict[str, Any] = {}
             if job_params.get("prompt"):
                 settings["prompt"] = job_params["prompt"]
@@ -364,10 +389,15 @@ class CloudWorkerEngine(BaseEngine):
                     settings["num_inference_steps"] = int(steps)
                 except (TypeError, ValueError):
                     pass
-            for extra_values in (job_params.get("advanced") or {}, job_params.get("extra") or {}):
-                for key, val in extra_values.items():
-                    if val not in (None, ""):
-                        settings[key] = val
+            if job_params.get("source_strength") is not None:
+                settings["input_video_strength"] = job_params["source_strength"]  # Continue: preserve do pacote
+            if job_params.get("guidance_scale") is not None:
+                settings["guidance_scale"] = job_params["guidance_scale"]
+            # 'extra' continua um escape-hatch cru (ex.: video_length) — só
+            # 'advanced' passa pelo gate real de capability (ver abaixo).
+            for key, val in (job_params.get("extra") or {}).items():
+                if val not in (None, ""):
+                    settings[key] = val
 
             zone_settings = self._resolve_zone_uploads(base, headers, job_params)
             prompt_type_adds = {
@@ -393,6 +423,45 @@ class CloudWorkerEngine(BaseEngine):
                         continue  # já é um código de modo completo (control_video_option) — não misturar letras
                     base_value = str(settings.get(key, model_defaults.get(key, "")) or "")
                     settings[key] = "".join(sorted(set(base_value) | set(add)))
+
+            # --- 2. Resolver UTILITÁRIOS (advanced settings, gate real por família) ---
+            advanced_resolution = utility_resolver.resolve_advanced(model_type, job_params.get("advanced"))
+            settings.update(advanced_resolution["applied"])
+            utility_conflicts = list(workflow_warnings) + [
+                f"advanced '{k}' rejeitado: {why}" for k, why in advanced_resolution["rejected"].items()
+            ]
+
+            # --- 3. Resolver LORAS (nunca reenviar a lista crua da UI) ---
+            # allowed_modes/incompatible_modes no catálogo de LoRAs são os
+            # modos REAIS do Wan2GP (t2v/i2v/flf/continue) — usar o
+            # workflow_id já resolvido, nunca o `mode` do JARVIS (ex.:
+            # "image_motion" não existe nesse vocabulário).
+            lora_resolution = lora_resolver.resolve_loras(
+                model_id=model_type,
+                mode=workflow_id,
+                user_selection=job_params.get("loras_selection") or [],
+                available_inputs={"has_ctrl_video": bool(job_params.get("control_video"))},
+            )
+            utility_conflicts += lora_resolution["conflicts"] + lora_resolution["controls_needed"]
+            for key, value in lora_resolution["extra_settings"].items():
+                if key == "video_prompt_type":
+                    existing = str(settings.get("video_prompt_type", ""))
+                    settings["video_prompt_type"] = "".join(sorted(set(existing) | set(str(value))))
+                else:
+                    settings[key] = value
+
+            # --- 3b. Extras específicos do workflow (Image Motion, Talking
+            # Image, Infinite Talk, Character Animate) sobre a base já
+            # correcta acima ---
+            apply_workflow_extras(workflow_id, job_params, settings, model_id=model_type)
+
+            # --- 4. Persistir exactamente o que foi resolvido/enviado (reprodutibilidade) ---
+            self._set_job(job_id, resolution_snapshot=json.dumps({
+                "workflow_id": workflow_id, "mode": mode, "model_type": model_type,
+                "loras_applied": lora_resolution["applied"], "loras_automatic": lora_resolution["automatic"],
+                "conflicts": utility_conflicts, "seed": settings.get("seed"),
+                "settings_sent": {k: v for k, v in settings.items() if k not in ("prompt",)},
+            }, default=str))
 
             self._set_job(job_id, progress=0.02)
 

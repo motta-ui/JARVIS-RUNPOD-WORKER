@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from .config import DB_PATH
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 BASE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS schema_version (
@@ -133,6 +133,14 @@ MIGRATIONS = [
         # write-only from the API's point of view, see cloud/worker_connection.py
         "ALTER TABLE cloud_connection ADD COLUMN worker_token TEXT",
         "ALTER TABLE jobs ADD COLUMN worker_job_id TEXT",
+    ]),
+    (4, [
+        # snapshot JSON do que foi REALMENTE resolvido/enviado ao Worker
+        # (workflow_id, loras aplicados/automáticos, controlos, advanced
+        # settings, settings finais) — grava-se a resolução real, não o
+        # pedido crú da UI, para uma geração poder ser reproduzida depois.
+        # Ver registry/workflow_resolver.py, lora_resolver.py, utility_resolver.py.
+        "ALTER TABLE jobs ADD COLUMN resolution_snapshot TEXT",
     ]),
 ]
 

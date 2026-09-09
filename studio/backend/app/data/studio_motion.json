@@ -2,9 +2,10 @@
   "label": "Motion Studio",
   "kind": "motion",
   "modes": [
-    {"id": "i2v", "label": "Image Motion / Talking Image", "needs": ["start_image"]},
-    {"id": "continue", "label": "Infinite Talk (continue)", "needs": ["reference_video"]},
-    {"id": "animate_character", "label": "Animar Personagem", "needs": ["reference_image", "control_video"]}
+    {"id": "image_motion", "label": "Image Motion", "needs": ["start_image"]},
+    {"id": "talking_image", "label": "Talking Image", "needs": ["start_image", "audio"]},
+    {"id": "infinite_talk", "label": "Infinite Talk", "needs": ["start_image", "audio"]},
+    {"id": "character_animate", "label": "Character Animate", "needs": ["reference_image", "control_video"]}
   ],
   "reference_zones": [
     {"key": "start_image", "label": "Reference Image", "accept": "image/*"},
