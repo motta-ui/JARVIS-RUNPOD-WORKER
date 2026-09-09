@@ -1,150 +1,114 @@
 # JARVIS AI STUDIO — SESSION HANDOFF
 
-Última atualização: 2026-09-08 (sessão de integração real Studio ↔ RunPod)
+Última atualização: 2026-09-09 (sessão de adoção do ACS real + investigação de LoRAs/utilitários)
 
-## Estado atual
+**⚠️ Este arquivo substitui por completo a versão de 2026-09-08.** A arquitetura mudou de raiz nesta sessão: a reimplementação do zero (CloudWorkerEngine, `t2v_1.3B`, Studio próprio) foi **abandonada e preservada só como backup** — ver seção "O que mudou" abaixo. O projeto agora roda o **ACS real** (produto comercial do usuário) contra o Worker no RunPod.
 
-**T2V real e I2V real já funcionam de ponta a ponta, disparados pelo próprio JARVIS Studio, sem mock e sem simulação.**
+## Estado atual — resumo de 1 parágrafo
 
-- T2V real: Studio → CloudWorkerEngine → Worker → Wan2GP → RTX 4090 → MP4 → Gallery. Confirmado com job_id, tempo de geração, tamanho do arquivo, assinatura de MP4 válida e reprodução real no navegador.
-- I2V real: mesmo caminho, via preset "Light I2V 8GB" (`model=i2v_nvfp4`), com imagem de referência real (`start_image`) enviada e usada de facto. Job completo, arquivo de saída confirmado em disco.
-- O Worker real coexiste no mesmo Pod com o Wan2GP original (Gradio, porta 7860/7862) sem conflito — é a sessão headless documentada da própria API do WanGP (`shared/api.py` → `WanGPSession`/`init()`), não um segundo servidor.
-- Nenhuma porta nova foi aberta no RunPod; nenhuma config de nginx/supervisor foi alterada. O Worker reaproveita um proxy que já existia na imagem (rotulado "Dockerless CLI FastAPI Server", `:7270 -> :7271`) e que estava livre.
+O backend real do ACS (`studio/backend/acs_api.py`, importado byte-a-byte de `C:\ACS Unlimited\app\acs_api.py`) roda no Windows do usuário, mas em vez de gerar localmente (sem GPU), fala com o Worker (`jarvis_worker/`) que roda no Pod RunPod (RTX 4090) via túnel SSH, e o Worker executa o Wan2GP real (`/workspace/Wan2GP`, upstream `deepbeepmeep/Wan2GP`). Frontend real do ACS também importado (`studio/backend/frontend/`, servido em `/studio/*` — a raiz `/` é um protótipo decorativo, **não usar**). T2V, I2V, FLF (first-last-frame) e Continue já testados de ponta a ponta e reais, no modelo Cinematic Pro (família LTX2). LoRAs do usuário (escolhidas manualmente na UI) e LoRAs "receita" (baked-in em cada `defaults/*.json` do Wan2GP) confirmadas como preservadas corretamente — nada foi simplificado.
+
+## O que mudou nesta sessão (contexto p/ não se perder)
+
+1. Usuário revelou que já tem um produto comercial pronto, o **ACS** (`ACS_NUCLEO.zip`, instalado em `C:\ACS Unlimited\`), e pediu para adotarmos ele de verdade em vez de continuar reimplementando do zero.
+2. Estratégia escolhida pelo usuário: (1) fazer backup do trabalho já feito, (2) adotar o ACS real.
+3. Backup preservado na branch `backup/studio-reimplementation-before-acs-adoption` (aponta pro commit `af0e44f`). **Não deletar essa branch.**
+4. `acs_api.py`, `acs_wan_client.py`, `acs_wansession_path.py` e `frontend/` foram trazidos do ACS real e adaptados minimamente (ver "Modificações feitas no ACS" abaixo) para falar com o Worker remoto em vez de rodar tudo local.
+5. Motivo documentado pelo próprio usuário para todo o sistema de LoRAs/utilitários existir: *"rodar só os modelos sozinhos o vídeo não sai legal... criei LoRAs e outros utilitários para imagens, vídeos e áudio pro final sair tudo profissional"* — ou seja, **a exigência #1 do projeto é: nunca simplificar/perder LoRAs ou utilitários de nenhum modelo.**
 
 ## Arquitetura atual
 
 ```
-Windows Studio (frontend :5173 + backend :8000)
+Windows (sem GPU)
+  ACS Studio real — backend (acs_api.py, porta 8011 nesta sessão) + frontend real (/studio/*)
+        ↓ (ACS_USE_WANSESSION=1 → acs_wan_client.py → WanClient)
+  Túnel SSH local 127.0.0.1:7270 -> Pod
         ↓
-CloudWorkerEngine (studio/backend/app/engines/cloud_worker/adapter.py)
+  nginx do Pod (proxy pré-existente, :7270 -> :7271, reaproveitado — nunca abrimos porta nova)
         ↓
-Túnel SSH local (127.0.0.1:7270 -> Pod)
+  JARVIS Worker (FastAPI, /workspace/jarvis_worker, 127.0.0.1:7271 dentro do Pod)
         ↓
-nginx do Pod (proxy já existente, :7270 -> :7271)
+  Wan2GP real (/workspace/Wan2GP, deepbeepmeep/Wan2GP, commit 362c3467a)
         ↓
-JARVIS Worker (FastAPI, /workspace/jarvis_worker, 127.0.0.1:7271 dentro do Pod)
+  RTX 4090 (24GB VRAM)
         ↓
-Wan2GP real (/workspace/Wan2GP, deepbeepmeep/Wan2GP upstream)
-        ↓
-RTX 4090 (24GB VRAM)
-        ↓
-MP4 real
-        ↓
-Download para studio/outputs/{job_id}/
-        ↓
-Gallery do Studio (confirmado visualmente no navegador)
+  MP4/imagem/áudio real → baixado via /upload-ref (entrada) e /outputs (saída)
 ```
 
-## Runtime atual (sem tokens/secrets)
+## Runtime desta sessão (Pod específico — pode não existir mais amanhã)
 
 | Item | Valor |
 |---|---|
-| Wan2GP (path real no Pod) | `/workspace/Wan2GP` (deepbeepmeep/Wan2GP, commit `362c3467a...`) |
-| Worker (path real no Pod) | `/workspace/jarvis_worker` (sincronizado de `jarvis_worker/` deste repo) |
-| Worker — porta interna no Pod | `127.0.0.1:7271` |
-| Proxy nginx do Pod (pré-existente, reaproveitado) | `:7270 -> :7271` |
-| Acesso do Studio ao Worker | túnel SSH local: `127.0.0.1:7270` (Windows) → Pod `:7270` |
-| Studio backend (local) | `http://127.0.0.1:8000` |
-| Studio frontend (local) | `http://localhost:5173` |
-| Python/venv do Pod (Wan2GP + Worker) | `/opt/wan2gp-venv` — Python 3.11.15 |
-| Python/venv do Studio backend (Windows) | `studio/backend/.venv` — Python 3.14.7 |
-| GPU | NVIDIA GeForce RTX 4090, 24564 MiB VRAM |
-| Driver / CUDA | Driver 580.178.04 / CUDA 13.0 (torch compilado com cu128) |
-| PyTorch (no Pod) | `2.10.0+cu128`, `torch.cuda.is_available()=True` |
+| Pod usado nesta sessão | `213.173.109.159`, SSH porta `17040` — **verificar se ainda está ativo antes de reusar**; se não, achar o Pod atual no dashboard RunPod |
+| Wan2GP (path no Pod) | `/workspace/Wan2GP` |
+| Worker (path no Pod) | `/workspace/jarvis_worker` |
+| Worker — porta interna | `127.0.0.1:7271` |
+| Proxy nginx do Pod (reaproveitado) | `:7270 -> :7271` |
+| Log do Worker no Pod | `/workspace/jarvis_worker.log` |
+| Token do Worker | variável de ambiente `JARVIS_WORKER_TOKEN` do processo uvicorn no Pod — ler com `cat /proc/<pid>/environ \| tr '\0' '\n' \| grep TOKEN` (pid do `uvicorn app:app --port 7271`, achar com `ps aux`). **Nunca commitado.** |
+| ACS backend local (Windows) | porta `8011` nesta sessão (porta `8010` está ocupada por uma cópia real e separada do ACS instalada em `C:\ACS Unlimited\` — **não tocar nela**) |
+| Log do ACS local (Windows) | `%TEMP%\acs_apiN.log` (N incrementa a cada restart — usar o mais recente) |
+| Env vars necessárias p/ rodar o backend adotado | `ACS_USE_WANSESSION=1`, `ACS_WAN_WORKER_PORT=7270`, `ACS_WORKER_TOKEN=<token do Worker>`, `ACS_DEV_MODE=1`, `ACS_OUTPUTS_DIR=studio/backend/outputs`, `ACS_WAN2GP_DIR=studio/backend/wan2gp_local` (ver `studio/README.md`) |
 | Branch Git | `claude/jarvis-multimodal-integration-dis74f` |
-| Commits importantes desta sessão | `ff44258` (fix `JARVIS_WAN_DIR` + doc do deployment real), `12dc4d3` (cache de `health()` no CloudWorkerEngine) |
+| Branch de backup (reimplementação antiga) | `backup/studio-reimplementation-before-acs-adoption` (commit `af0e44f`) |
+| Commits importantes desta sessão | `b053334` (adoção do ACS real), `8d015f2` (provisiona `wan2gp_local/`, reescreve README), `9e4c7c1` (resolve URLs de LoRA + log de settings finais) |
 
-Token do Worker: existe apenas em `studio/data/jarvis.db` (gitignored) e como variável de ambiente no processo do Worker no Pod. **Nunca foi commitado.**
+## Modificações feitas no ACS real (todas mínimas e aditivas)
 
-## O que foi validado
+- `acs_api.py`: chamada a `_upload_local_files()` logo após `build_core_settings()` (~linha 5999-6003) para subir arquivos locais (imagem/vídeo/áudio de referência) ao Worker antes de gerar — sem isso, o Worker recebia paths do Windows e dava `FileNotFoundError`.
+- `acs_api.py`: resolução de `activated_loras` (filename → URL real via `_LORAS_URL_CACHE`) logo depois (~linha 6004-6024) — sem isso, o Worker recebia só o nome do arquivo e não sabia de onde baixar.
+- `acs_api.py`: log de debug antes de `WAN.generate()` imprimindo as configs de qualidade/utilitários enviadas (RIFLEx, self refiner, spatial upsampling, film grain, prompt enhancer, LoRAs) — usado pra verificação, pode manter.
+- `acs_wan_client.py`: adaptado de `http://127.0.0.1:7872` (Gradio local) pra falar com o Worker via `X-Jarvis-Token`, com upload/download e polling assíncrono de `/run_task`.
+- `acs_wansession_path.py`: adicionada `_upload_local_files()` (função auxiliar, chamada pelo `acs_api.py` acima).
+- `.dev_mode` + `version.json` (`channel: dev`): ativam o bypass de licença **legítimo e já existente no próprio ACS** (não é hack — é um modo dev documentado no próprio código, sem phone-home).
 
-**T2V real:**
-- Direto no Worker (`POST /run_task`, `model_type=t2v_1.3B`, 8 steps, 480x272, 17 frames) — baixou pesos reais do Hugging Face (~10GB: T5, VAE, checkpoint), gerou `.mp4` real na GPU.
-- Disparado pelo Studio (`engine=wan`, `model=t2v_1.3B`, job `70b341ed-8c61-4490-9d86-03d6ea5ec399`) — pesos já em cache, 9,8s de geração, MP4 de 99.798 bytes com assinatura `ftyp isom` válida, item de Gallery `d491760b-9514-48c3-b7c1-5fc9e9c390a7` confirmado visualmente no navegador (thumbnail real + player tocando).
+**Nada na lógica de negócio original (workflows, LoRAs, utilitários, validações, `LORA_CAPABILITIES`) foi alterado.** Só a camada de transporte (onde os bytes são gerados) foi trocada de local pra remota.
 
-**I2V real:**
-- Disparado pelo Studio via preset "Light I2V 8GB" (`model=i2v_nvfp4`), job `80ad13dd-d059-45bf-8d17-1cab1552bc94`, com imagem de referência real (`start_image`) enviada. Completo em ~118s, MP4 real de 3.249.778 bytes confirmado em disco.
+## O que foi validado de verdade nesta sessão
 
-**Infra:**
-- Git/GitHub reais (clone, branch, commits, push) — sem simulação.
-- SSH real ao Pod, inspeção read-only completa antes de qualquer alteração.
-- Nenhum segundo Wan2GP instalado — reaproveitada a instalação existente.
-- Cache de `health()` implementado (26 instâncias de `CloudWorkerEngine` compartilham uma conexão; sem cache, `GET /api/engines` levava ~15,7s contra o Worker real).
-- `npm run build` do frontend passa limpo.
-- Suite de testes do backend (`scripts/test_backend.py`, `scripts/test_cloud.py`) passa nos casos relevantes ao Cloud Worker.
+- **T2V/I2V/FLF/Continue reais**, família Cinematic Pro (LTX2), disparados pela UI real do ACS (`/studio/video/`), executados no Worker/Pod, vídeo final baixado e confirmado.
+- **`image_prompt_type` correto por modo** (`S`=i2v, `SE`=flf, `V`=continue) — bug crítico que existia na reimplementação antiga (perdia `image_start`/`image_end` silenciosamente) **não existe** no ACS real; `acs_wansession_path.py::build_core_settings()` já mapeia certo.
+- **LoRA escolhida manualmente pelo usuário**: resolvida pra URL real, baixada no Pod (~6s pra 1,23GB via link direto, vs 74s+ que levaria no Windows), aplicada de fato (log `Lora '...' was loaded in model ...` confirmado).
+- **LoRAs "receita" baked-in de cada modelo** (ex.: as 4 LoRAs do `vace_14B_cocktail`/Studio Editor, multiplicadores `[1,0.5,0.5,0.5]`): confirmado via leitura direta do `wgp.py` (linha ~7028) que são carregadas **sempre**, direto do `model_def`, **independente** do que vem em `activated_loras` — não são perdidas mesmo que o Worker reporte `activated_loras: []` no `/default_settings`. Mecanismo confirmado também pro LTX2 (`_append_system_lora` em `models/ltx2/ltx2.py:1244`, aplica HDR/union-control/outpaint/inpaint/ingredients/id automaticamente conforme flags).
+- **Multi-prompt parsing**: erro real do usuário (`multi_prompts_gen_type='PG' parses this prompt into 11 separate generation requests`) diagnosticado como uso incorreto (linhas em branco no prompt viram seções separadas) — não é bug, é comportamento documentado do Wan2GP (`shared/utils/prompt_parser.py`).
+- **Bug real encontrado e diagnosticado (não corrigido, ver "Pendência #1" abaixo)**: `RuntimeError: LTX2 LoRA preprocessing dropped 2 unmatched keys for model 'ltx2_22B': audio_context, video_context` — causa raiz 100% identificada, confirmada **pré-existente no ACS original** (`C:\ACS Unlimited\app\acs_api.py`, mesmas linhas), não é bug introduzido pelo pipeline remoto.
 
-## O que NÃO está pronto
+## PENDÊNCIA #1 — decisão do usuário, retomar amanhã exatamente aqui
 
-- Audio real
+**Contexto completo do bug (para não precisar reinvestigar):**
+
+O usuário selecionou manualmente, no painel de LoRAs da UI real, a combinação `ic-lora-union-control-ref0.5` + `ic-lora-hdr-scene-emb` (sem configurar `video_prompt_type`). A LoRA `ic-lora-hdr-scene-emb.safetensors` é documentada no próprio código do ACS (`acs_api.py` linha 2174-2176) como **"Componente do HDR Cinematic — aplicado automaticamente"** — ou seja, não deveria ser selecionável isolada. Ela só funciona quando `video_prompt_type` recebe o caractere `&` (`VIDEO_PROMPT_HDR_OUTPUT_FLAG`, confirmado em `shared/utils/hdr.py:13`), que ativa o branch de condicionamento `audio_context`/`video_context` no transformer do LTX2.
+
+O ACS tem um guard real (`LORA_CAPABILITIES`, `acs_api.py` ~linha 5240) que faz auto-payload dessa flag — **mas só está cadastrado pro arquivo `ltx-2.3-22b-ic-lora-hdr-0.9.safetensors`** (linha 2271), não pro `ic-lora-hdr-scene-emb.safetensors` que o usuário escolheu. Por isso o guard não dispara, a flag não é setada, e o Wan2GP recusa corretamente a combinação com o erro acima.
+
+**Confirmado byte-a-byte**: essa mesma lacuna existe em `C:\ACS Unlimited\app\acs_api.py` (instalação original, local, sem RunPod) — mesmas linhas. **Não é bug do pipeline remoto, é uma lacuna pré-existente no ACS original.**
+
+**Pergunta feita ao usuário, ainda sem resposta**: adicionar uma entrada de `LORA_CAPABILITIES` para `ic-lora-hdr-scene-emb` (mesmo auto-payload da `hdr-0.9`), fechando a lacuna também no ACS original — ou manter 100% idêntico ao original (aceitando essa limitação como está, já que a exigência do usuário é paridade exata)?
+
+**Ação de amanhã**: perguntar ao usuário essa decisão pendente antes de qualquer outra coisa relacionada a LoRAs, e agir de acordo com a resposta.
+
+## O que ainda NÃO foi testado
+
+- Áudio real (TTS, audio-driven generation)
+- Modelos fora da família Cinematic Pro/LTX2 (outros modelos de vídeo Wan, modelos de imagem, modelos de áudio)
 - Motion real
-- End Frame real
-- Continue real
-- LoRA real (aplicação de LoRA através do Worker — `get_capabilities()` do `CloudWorkerEngine` já reporta `lora: False` deliberadamente)
-- Presets/workflows completos (200+ workflows importados ainda marcados `executable: False`)
-- Image Studio com experiência completa de referências de imagem (ver seção dedicada abaixo)
-- Gallery/Assets/Projects completamente integrados (histórico e organização por projeto ainda básicos)
-- Bootstrap automático do runtime (hoje foi feito manualmente, passo a passo, num Pod já existente)
-- Detecção/download automático de modelos sob demanda (hoje cada modelo baixa na primeira geração; falta uma camada de gestão/pré-checagem no Studio)
-- Criação automática do Pod (`RunPodProvider.create_instance` já existe no código, mas não foi exercitado nesta sessão)
-- Execução automática de jobs de ponta a ponta sem intervenção manual
-- Upload automático dos resultados de volta para o Windows (hoje o download já funciona via `/outputs`, mas não há automação de ciclo completo)
-- Auto-destruição do Pod
-- Arquitetura efêmera completa (criar → preparar → baixar modelos → executar → entregar → destruir)
-- Teste de reconstrução do runtime num Pod novo, do zero
+- Reconexão do túnel SSH após queda (mitigado com `-o ServerAliveInterval=20 -o ServerAliveCountMax=3`, mas ainda cai ocasionalmente — usuário já teve 2 quedas reais nesta sessão)
+- Bootstrap automático do runtime num Pod novo do zero (o Pod desta sessão foi montado manualmente, passo a passo)
+- Criação/destruição automática de Pod (arquitetura efêmera completa, ver README antigo — ainda não é o foco atual)
 
-### Pendência registrada: Image Studio — referências de imagem
+## Regras importantes (não esquecer)
 
-O Image Studio já lista vários modelos, mas ainda não tem a experiência completa de referências. Registrar como requisito futuro:
-- referência de imagem (upload real já funciona no fluxo I2V testado hoje — falta generalizar)
-- drag & drop / upload no Image Studio
-- capacidade de referência por modelo (nem todo modelo aceita imagem de referência)
-- distinguir modelos text-only vs. image-reference
-- modelos que aceitam múltiplas referências
-- integração correta com o Worker/engine para cada caso
-- preservar referências no histórico/projeto
-- suporte futuro para até 5 imagens de referência quando o modelo suportar
+- **Não recriar outro JARVIS.** Projeto real vive em `C:\Users\Emanoel motta\Desktop\JARVIS-RUNPOD-WORKER`. Pastas antigas no Desktop (`JARVIS_RUNPOD_WORKER_V1-V6` etc.) não são este projeto.
+- **Não tocar na instalação separada `C:\ACS Unlimited\`** — é o produto real do usuário, rodando com processo próprio na porta 8010. Usamos ela só como referência de leitura (comparação de código), nunca modificamos nem paramos.
+- **Nunca simplificar workflows/LoRAs/utilitários por modelo.** Essa é a exigência #1, repetida várias vezes pelo usuário. Qualquer mudança nessa área precisa ser validada contra o `acs_api.py` original antes de ir pra produção.
+- **Nunca commitar**: tokens, `wan2gp_local/` (dados locais, ~300MB+), outputs, `.env`.
+- Raiz `/` do frontend é decorativa — a UI real fica em `/studio/*`.
 
-## Próxima etapa
+## Próxima sessão — checklist de retomada
 
-A próxima etapa imediata é: **AUDIO REAL.**
-
-Depois, nesta ordem:
-1. Audio real
-2. Motion real
-3. End Frame / Continue
-4. LoRA real
-5. Image References (Image Studio completo)
-6. Presets/Workflows completos
-7. Bootstrap automático
-8. Pod automático (criação)
-9. Resultados (execução + upload automático)
-10. Auto-destruição do Pod
-11. Rebuild test (runtime do zero num Pod novo)
-12. Final (arquitetura efêmera completa validada)
-
-## Arquitetura efêmera
-
-O Pod atual (RTX 4090) foi usado **apenas para validar** a integração real — não é para ser preservado indefinidamente. O objetivo final do projeto é não depender de um Pod persistente:
-
-```
-criar Pod → preparar runtime → baixar modelos necessários → executar → entregar resultado → destruir Pod
-```
-
-Isso ainda não foi implementado nem testado (ver "O que NÃO está pronto"). Quando chegar essa etapa, o teste de reconstrução deve provar que o mesmo runtime pode ser recriado do zero num Pod novo, sem depender do Pod atual.
-
-## Regra importante
-
-**Não recriar outro JARVIS.** Continuar no projeto atual (`motta-ui/JARVIS-RUNPOD-WORKER`, branch `claude/jarvis-multimodal-integration-dis74f`). Há várias pastas antigas no Desktop do Windows (`JARVIS_RUNPOD_WORKER_V1` a `V6`, `JARVIS-AI-STUDIO-...` várias versões) que **não são** este projeto — são zips extraídos de tentativas anteriores, sem `.git`. O projeto real vive em `C:\Users\Emanoel motta\Desktop\JARVIS-RUNPOD-WORKER`.
-
-## Regra importante sobre RunPod
-
-**Não instalar uma segunda cópia de Wan2GP** quando uma instalação existente puder ser reutilizada durante a sessão. O Pod atual já tem Wan2GP real funcionando em `/workspace/Wan2GP` — reaproveitar, nunca duplicar.
-
-## Próxima sessão
-
-Amanhã, antes de qualquer implementação nova:
-1. Ler este arquivo (`JARVIS_SESSION_HANDOFF.md`) e `JARVIS_PROGRESS.md`.
-2. Verificar o estado do Git (`git status`, `git log`) na branch `claude/jarvis-multimodal-integration-dis74f`.
-3. Criar um novo Pod/runtime **somente quando necessário** (o Pod de hoje pode já não existir/estar acessível — o objetivo do projeto é justamente não depender dele).
-4. Reconstruir o runtime (Wan2GP + Worker) seguindo exatamente os passos já validados nesta sessão (ver "Runtime atual" e os commits `ff44258`/`12dc4d3`).
-5. Continuar a partir de **AUDIO REAL**.
+1. Ler este arquivo e `JARVIS_PROGRESS.md`.
+2. `git status` / `git log` na branch `claude/jarvis-multimodal-integration-dis74f` — deve estar limpo (estava limpo ao final desta sessão, tudo commitado e no push).
+3. Resolver a **PENDÊNCIA #1** com o usuário (decisão sobre `LORA_CAPABILITIES`/`hdr-scene-emb`) antes de seguir.
+4. Verificar se o Pod `213.173.109.159:17040` ainda existe; se não, localizar o Pod atual e resubir o túnel SSH + confirmar `/health` do Worker.
+5. Resubir o ACS backend local (env vars da tabela acima) e confirmar `/studio/video/` funcionando de ponta a ponta antes de continuar.
+6. Depois disso, seguir pra o que ainda não foi testado (lista acima) — sugestão: áudio real, depois outros modelos fora do LTX2.
