@@ -27,6 +27,7 @@ studio/.env
 studio/backend/outputs/*
 !studio/backend/outputs/.gitkeep
 studio/backend/runtime/
+studio/backend/temp_refs/
 studio/backend/__pycache__/
 
 # Local-only reference data copied from the real C:\ACS Unlimited\ install

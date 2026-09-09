@@ -6001,6 +6001,27 @@ def _generate_background(job_id: str, req: GenerateRequest):
                 # (image_start/image_end/video_guide/video_source/audio_guide/...)
                 # antes de gerar, porque um path local do Windows não existe no Pod.
                 _wan_settings = _upload_local_files(WAN, _wan_settings)
+                # [JARVIS-RUNPOD/LORA] O LORA-DOD acima (bloco original do ACS, linha
+                # ~5121) baixa a LoRA para ESTA máquina (sem GPU) — útil quando o motor
+                # roda localmente, inútil aqui. activated_loras chega aqui como filename
+                # nu (build_core_settings só copia loras_choices); o Worker remoto só
+                # acharia esse filename se por coincidência já existisse no Pod. Resolve
+                # para a URL real do Hugging Face (mesmo _LORAS_URL_CACHE já consultado
+                # acima) para o PRÓPRIO Wan2GP no Pod baixar — rápido, direto, sem
+                # depender do download local redundante nem de um endpoint de upload de
+                # .safetensors que o Worker não tem.
+                _al = _wan_settings.get("activated_loras")
+                if isinstance(_al, list) and _al:
+                    _al_folder = LORA_DIR_MAP.get(_mt) or LORA_DIR_MAP.get(family) or _mt
+                    _resolved_loras = []
+                    for _fn in _al:
+                        if not _fn or "://" in str(_fn):
+                            _resolved_loras.append(_fn)  # já é URL — deixa como está
+                            continue
+                        _url = (_LORAS_URL_CACHE.get(f"loras\\{_al_folder}\\{_fn}")
+                                or _LORAS_URL_CACHE.get(f"loras/{_al_folder}/{_fn}"))
+                        _resolved_loras.append(_url or _fn)  # sem URL conhecida: mantém o filename (gap documentado)
+                    _wan_settings["activated_loras"] = _resolved_loras
                 _GRADIO_ONLY = {"target", "image_mask_guide", "lset_name", "client_id", "api_name", "mode"}
                 _FILE_KEYS = {"image_start", "image_end", "image_refs", "image_guide", "video_guide",
                               "video_source", "video_mask", "image_mask", "audio_guide", "audio_guide2",
@@ -6055,6 +6076,16 @@ def _generate_background(job_id: str, req: GenerateRequest):
                     _vpt_cap = (_wan_settings.get("video_prompt_type", "") or "").replace("|", "")
                     _wan_settings["video_prompt_type"] = _vpt_cap + "|"
                 jobs[job_id]["status"] = "generating"; jobs[job_id]["progress"] = 50
+                # [JARVIS-RUNPOD] settings finais de qualidade/utilitários realmente
+                # enviadas ao Worker — para confirmar que RIFLEx/self refiner/upsampling/
+                # film grain/prompt enhancer chegam com o valor certo (o resto do dict
+                # já é logado só parcialmente acima, via "image_prompt_type=...").
+                _quality_keys = ("RIFLEx_setting", "temporal_upsampling", "self_refiner_setting",
+                                  "spatial_upsampling", "film_grain_intensity", "film_grain_saturation",
+                                  "prompt_enhancer", "guidance_phases_override", "activated_loras",
+                                  "loras_multipliers")
+                print(f"[ACS API] job {job_id} | quality/utils enviados: "
+                      f"{ {k: _wan_settings.get(k) for k in _quality_keys if k in _wan_settings} }")
                 _r = run_with_live_progress(jobs, job_id, lambda: WAN.generate(_mt, _wan_settings))
                 if not _r.get("ok"):
                     _err = _r.get("error", "erro no Motor de IA")
